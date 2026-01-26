@@ -13,6 +13,7 @@ import spoon.reflect.reference.CtTypeReference;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
@@ -219,7 +220,7 @@ public class SourceCodeAnalyzer {
             return returnTypeInSourceCode;
         }
 
-        File depDir = new File(sourceDirectory + "/tmp/dependencies");
+        File depDir = new File(Path.of(sourceDirectory).resolve("tmp").resolve("dependencies").toString());
         String dependencyReturnType = getReturnTypeOfMethodFromDependencies(className, methodName, parameterTypeNames, depDir);
 
         if (dependencyReturnType != null) {

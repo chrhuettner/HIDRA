@@ -1,0 +1,13 @@
+HOST_WORKDIR="$HOME/workFolder"
+log="$HOST_WORKDIR/benchmark_$(date +%F_%H-%M-%S).log"
+
+nohup sudo sh -c "docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v '$HOST_WORKDIR:/app/workFolder' \
+  chrhuettner/dependencyconflictresolver:latest \
+  bump '/app/workFolder/configDockerTest3.json' \
+  2>&1 | tee -a '$log'" \
+  > /dev/null 2>&1 &
+
+echo "Started. Log: $log"

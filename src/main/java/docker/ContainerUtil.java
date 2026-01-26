@@ -471,9 +471,10 @@ public class ContainerUtil {
                     continue;
                 }
 
-                File outputFile = new File(outputDir.getAbsolutePath() + "\\" + entry.getName());
+
 
                 if (entry.isDirectory()) {
+                    File outputFile = new File(outputDir.getAbsolutePath() + entry.getName());
                     outputFile.mkdirs();
                 } else {
                     if (path.endsWith("java") || path.endsWith(".jar")) {
@@ -502,9 +503,8 @@ public class ContainerUtil {
                     continue;
                 }
 
-                File outputFile = new File(outputDir.getAbsolutePath() + "\\" + entry.getName());
-
                 if (entry.isDirectory()) {
+                    File outputFile = new File(outputDir.getAbsolutePath() + entry.getName());
                     outputFile.mkdirs();
                 } else {
                     if (path.endsWith("java") || path.endsWith(".jar")) {

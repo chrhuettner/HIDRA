@@ -130,7 +130,6 @@ public class BumpRunner {
         File bumpFolder = new File(bumpConfig.getPathToBUMPFolder());
         ObjectMapper objectMapper = new ObjectMapper();
 
-        List<String> validEntryNames = new ArrayList<>();
         AtomicInteger satisfiedConflictPairs = new AtomicInteger();
         AtomicInteger totalPairs = new AtomicInteger();
         List<Thread> activeThreads = new ArrayList<>();
@@ -140,9 +139,10 @@ public class BumpRunner {
         AtomicInteger fixableProjects = new AtomicInteger();
         AtomicInteger imposterProjects = new AtomicInteger();
         AtomicInteger llmRequests = new AtomicInteger();
-
+        List<Double> successfullLatencies = new ArrayList<>();
 
         int limit = bumpConfig.getThreads();
+        long globalStartTime = System.currentTimeMillis();
         for (File file : bumpFolder.listFiles()) {
             while (activeThreadCount.getAndUpdate(operand -> {
                 if (operand >= limit) {
@@ -159,6 +159,7 @@ public class BumpRunner {
             }
             Thread virtualThread = Thread.ofVirtual().start(() -> {
                 try {
+                    long timeStart = System.currentTimeMillis();
                     JsonNode jsonNode = objectMapper.readTree(file);
                     JsonNode updatedDependency = jsonNode.get("updatedDependency");
 
@@ -183,7 +184,6 @@ public class BumpRunner {
                     String breakingUpdateReproductionCommand = cleanString(jsonNode.get("breakingUpdateReproductionCommand").toString());
                     String updatedFileType = cleanString(updatedDependency.get("updatedFileType").toString());
                     if (!updatedFileType.equals("JAR")) {
-                        activeThreadCount.decrementAndGet();
                         return;
                     }
 
@@ -242,12 +242,10 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
                     //TODO: 4aab2869639226035c999c282f31efba15648ea3 className is null
                     /*if (!file.getName().equals("10d7545c5771b03dd9f6122bd5973a759eb2cd03.json")) {
-                        activeThreadCount.decrementAndGet();
                         return;
                     }*/
 
                     /*if (!file.getName().equals("4a3efad6e00824e5814b9c8f571c9c98aad40281.json")) {
-                        activeThreadCount.decrementAndGet();
                         return;
                     }*/
 
@@ -269,7 +267,6 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     if (Files.exists(targetPathOld) && Files.exists(targetPathNew)) {
                         satisfiedConflictPairs.getAndIncrement();
                     } else {
-                        activeThreadCount.decrementAndGet();
                         return;
                     }
 
@@ -278,7 +275,6 @@ Caused by: java.util.zip.ZipException: zip END header not found
                         if (ContainerUtil.logFromContainerContainsError(dockerClient, oldContainer, Path.of(directoryOldContainerLogs + "/" + strippedFileName + "_" + project))) {
                             System.out.println(strippedFileName + "_" + project + " is not working despite being in the pre set!!!!");
                             imposterProjects.incrementAndGet();
-                            activeThreadCount.decrementAndGet();
                             return;
                         }
                         ContainerUtil.extractDependenciesAndSourceCodeFromContainer(outputDirSrcFiles, dockerClient, oldUpdateImage, dependencyArtifactID + "_" + strippedFileName);
@@ -292,7 +288,6 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     boolean projectIsFixableWithSourceCodeModification = projectIsFixableThroughCodeModification(Path.of(bumpConfig.getPathToOutput() + "/brokenLogs" + "/" + strippedFileName + "_" + project));
 
                     if (!projectIsFixableWithSourceCodeModification) {
-                        activeThreadCount.decrementAndGet();
                         return;
                     }
                     fixableProjects.incrementAndGet();
@@ -396,19 +391,25 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
                     JarDiffUtil.removeCachedJarDiffsForThread();
 
+                    long timeEnd = System.currentTimeMillis();
+                    long diff = timeEnd-timeStart;
+                    System.out.println("Took "+diff+" ms to process "+project);
+
                     if (errorsWereFixed) {
                         System.out.println("Fixed " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ")");
+                        successfullLatencies.add((double) diff);
                         successfulFixes.getAndIncrement();
                     } else {
                         System.out.println("Could not fix " + strippedFileName);
                         failedFixes.getAndIncrement();
                     }
 
-                    activeThreadCount.decrementAndGet();
+
 
                 } catch (Exception e) {
-                    activeThreadCount.decrementAndGet();
                     e.printStackTrace();
+                } finally {
+                    activeThreadCount.decrementAndGet();
                 }
             });
             activeThreads.add(virtualThread);
@@ -422,6 +423,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
             }
         }
 
+        long globalEndTime = System.currentTimeMillis();
+        System.out.println("Took "+(globalEndTime-globalStartTime)+" ms to process all projects");
         System.out.println(imposterProjects.get() + " projects are not buildable despite being in the pre set!!!");
         System.out.println(satisfiedConflictPairs.get() + " out of " + totalPairs.get() + " project pairs have accessible dependencies");
         System.out.println(fixableProjects.get() + " projects are fixable");
@@ -434,11 +437,51 @@ Caused by: java.util.zip.ZipException: zip END header not found
         for (String solverName : errorsAssignedToSolvers.keySet()) {
             System.out.println("Assigned "+errorsAssignedToSolvers.get(solverName).get()+" errors to "+solverName+"");
         }
-        try {
-            objectMapper.writeValue(new File(bumpConfig.getPathToOutput() + "/downloaded/validEntries.json"), validEntryNames);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        DoubleSummaryStatistics stats = successfullLatencies.stream()
+                .mapToDouble(Double::doubleValue)
+                .summaryStatistics();
+
+        System.out.println("Latency statistics: ");
+
+        System.out.println("Average: " + stats.getAverage());
+        System.out.println("Min: " + stats.getMin());
+        System.out.println("Max: " + stats.getMax());
+        System.out.println("Count: " + stats.getCount());
+
+
+        List<Double> sorted = successfullLatencies.stream()
+                .sorted()
+                .toList();
+
+        double median;
+        int size = sorted.size();
+        if (size % 2 == 0) {
+            median = (sorted.get(size / 2 - 1) + sorted.get(size / 2)) / 2.0;
+        } else {
+            median = sorted.get(size / 2);
         }
+        System.out.println("Median: " + median);
+
+
+
+
+        double p25 = sorted.get((int) (0.25 * (size - 1)));
+        double p75 = sorted.get((int) (0.75 * (size - 1)));
+        System.out.println("25th percentile: " + p25);
+        System.out.println("75th percentile: " + p75);
+
+
+
+        double mean = stats.getAverage();
+        double variance = successfullLatencies.stream()
+                .mapToDouble(d -> Math.pow(d - mean, 2))
+                .average()
+                .orElse(Double.NaN);
+        double stdDev = Math.sqrt(variance);
+
+        System.out.println("Variance: " + variance);
+        System.out.println("Standard Deviation: " + stdDev);
     }
 
     public static boolean validateFix(Context context) {
