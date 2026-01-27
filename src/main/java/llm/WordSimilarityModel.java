@@ -18,7 +18,7 @@ public class WordSimilarityModel {
                     .version(HttpClient.Version.HTTP_1_1)
                     .build();
 
-    private static final Semaphore HTTP_LIMITER = new Semaphore(8);
+    private static final Semaphore HTTP_LIMITER = new Semaphore(8, true);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public WordSimilarityModel(String model, String ollamaUrl) {
@@ -27,6 +27,7 @@ public class WordSimilarityModel {
     }
 
     public double[] getEmbedding(String word)  {
+        //System.out.println("Attempting to get embedding for: "+word);
         String json = String.format(
                 "{\"model\":\"%s\",\"prompt\":\"%s\"}",
                 model,

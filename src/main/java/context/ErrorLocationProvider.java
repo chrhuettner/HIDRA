@@ -14,13 +14,13 @@ public interface ErrorLocationProvider {
 
     static List<ErrorLocationProvider> getContextProviders(Context context) {
         List<ErrorLocationProvider> errorLocationProviders = new ArrayList<>();
+        errorLocationProviders.add(new ImportProvider(context));
         errorLocationProviders.add(new CannotFindSymbolProvider(context));
         errorLocationProviders.add(new ConstructorTypeProvider(context));
         errorLocationProviders.add(new DeprecationProvider(context));
         errorLocationProviders.add(new MethodChainProvider(context));
         errorLocationProviders.add(new SuperProvider(context));
         errorLocationProviders.add(new TypeCastProvider(context));
-        errorLocationProviders.add(new ImportProvider(context));
 
         return errorLocationProviders;
     }

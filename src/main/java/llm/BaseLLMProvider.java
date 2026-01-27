@@ -7,6 +7,8 @@ import okhttp3.*;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 public abstract class BaseLLMProvider implements LLMProvider {
 
@@ -16,10 +18,13 @@ public abstract class BaseLLMProvider implements LLMProvider {
     protected final OkHttpClient client;
     protected final ObjectMapper mapper;
 
+    private static final Semaphore LLM_SEMAPHORE = new Semaphore(2, true);
+
     public BaseLLMProvider() {
         client = new OkHttpClient.Builder().connectTimeout(300, TimeUnit.SECONDS)
                 .writeTimeout(300, TimeUnit.SECONDS)
                 .readTimeout(300, TimeUnit.SECONDS)
+                .callTimeout(330, TimeUnit.SECONDS)
                 .build();
         mapper = new ObjectMapper();
     }
@@ -33,31 +38,38 @@ public abstract class BaseLLMProvider implements LLMProvider {
             throw new RuntimeException(e);
         }
 
+        try {
+            LLM_SEMAPHORE.acquire();
 
-        Request request = buildRequestFromJsonString(json);
+            Request request = buildRequestFromJsonString(json);
 
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new IOException("Unexpected code " + response + ": " + response.body().string());
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    throw new IOException("Unexpected code " + response + ": " + response.body().string());
+                }
+                if (response.body() == null) {
+                    throw new IOException("Empty response");
+                }
+                String result = extractContentFromResponse(response.body().string());
+                int startIndex = result.indexOf(codeStart);
+                int endIndex = result.indexOf(codeEnd);
+                String code = "";
+
+                if (startIndex != -1 && endIndex != -1) {
+                    code = result.substring(startIndex + codeStart.length(), endIndex).trim();
+                } else {
+                    System.err.println(getModel() + " failed to respond code in expected format!");
+                    System.err.println("Full response: " + result);
+                }
+
+                return new ConflictResolutionResult(code, result);
+            } catch (IOException e) {
+                throw new AIProviderException(e);
             }
-            if (response.body() == null) {
-                throw new IOException("Empty response");
-            }
-            String result = extractContentFromResponse(response.body().string());
-            int startIndex = result.indexOf(codeStart);
-            int endIndex = result.indexOf(codeEnd);
-            String code = "";
-
-            if(startIndex != -1 && endIndex != -1){
-                code = result.substring(startIndex+codeStart.length(), endIndex).trim();
-            }else{
-                System.err.println(getModel()+" failed to respond code in expected format!");
-                System.err.println("Full response: " + result);
-            }
-
-            return new ConflictResolutionResult(code, result);
-        } catch (IOException e) {
-            throw new AIProviderException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            LLM_SEMAPHORE.release();
         }
     }
 
@@ -65,11 +77,11 @@ public abstract class BaseLLMProvider implements LLMProvider {
         RequestBody body = RequestBody.create(
                 json, MediaType.parse("application/json"));
 
-       Request.Builder baseRequest = new Request.Builder()
+        Request.Builder baseRequest = new Request.Builder()
                 .url(getUrl())
                 .post(body);
 
-       return addHeadersToBuilder(baseRequest).build();
+        return addHeadersToBuilder(baseRequest).build();
     }
 
     public abstract Object getPromptWithContext(String prompt, String context);
@@ -80,16 +92,16 @@ public abstract class BaseLLMProvider implements LLMProvider {
 
     public abstract Request.Builder addHeadersToBuilder(Request.Builder builder);
 
-    public static LLMProvider getProviderByNames(String providerName, String modelName, String ollamaUrl, String apiKey){
-        switch (providerName){
+    public static LLMProvider getProviderByNames(String providerName, String modelName, String ollamaUrl, String apiKey) {
+        switch (providerName) {
             case "ollama":
-                return new OllamaProvider(modelName, ollamaUrl+"/api/chat");
+                return new OllamaProvider(modelName, ollamaUrl + "/api/chat");
             case "openai":
                 return new OpenAiProvider(modelName, apiKey);
             case "anthropic":
                 return new AnthropicProvider(modelName, apiKey);
             default:
-                throw new IllegalArgumentException("Unknown provider name: " + providerName+". Valid options: ollama, openai, anthropic");
+                throw new IllegalArgumentException("Unknown provider name: " + providerName + ". Valid options: ollama, openai, anthropic");
         }
     }
 }

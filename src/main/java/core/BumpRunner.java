@@ -12,6 +12,7 @@ import com.github.dockerjava.transport.DockerHttpClient;
 import context.Context;
 import context.ErrorLocationProvider;
 import context.LogParser;
+import context.SourceCodeAnalyzer;
 import docker.ContainerUtil;
 import dto.BrokenCode;
 import dto.ErrorLocation;
@@ -245,7 +246,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                         return;
                     }*/
 
-                    /*if (!file.getName().equals("4a3efad6e00824e5814b9c8f571c9c98aad40281.json")) {
+                    /*if (!file.getName().equals("54abbbde6a1233e1523a9b5f811ea100efb5dead.json")) {
                         return;
                     }*/
 
@@ -390,10 +391,11 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     }
 
                     JarDiffUtil.removeCachedJarDiffsForThread();
+                    SourceCodeAnalyzer.removeCachedAnalysersForThread();
 
                     long timeEnd = System.currentTimeMillis();
-                    long diff = timeEnd-timeStart;
-                    System.out.println("Took "+diff+" ms to process "+project);
+                    long diff = timeEnd - timeStart;
+                    System.out.println("Took " + diff + " ms to process " + project);
 
                     if (errorsWereFixed) {
                         System.out.println("Fixed " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ")");
@@ -403,7 +405,6 @@ Caused by: java.util.zip.ZipException: zip END header not found
                         System.out.println("Could not fix " + strippedFileName);
                         failedFixes.getAndIncrement();
                     }
-
 
 
                 } catch (Exception e) {
@@ -424,18 +425,18 @@ Caused by: java.util.zip.ZipException: zip END header not found
         }
 
         long globalEndTime = System.currentTimeMillis();
-        System.out.println("Took "+(globalEndTime-globalStartTime)+" ms to process all projects");
+        System.out.println("Took " + (globalEndTime - globalStartTime) + " ms to process all projects");
         System.out.println(imposterProjects.get() + " projects are not buildable despite being in the pre set!!!");
         System.out.println(satisfiedConflictPairs.get() + " out of " + totalPairs.get() + " project pairs have accessible dependencies");
         System.out.println(fixableProjects.get() + " projects are fixable");
         System.out.println("Fixed " + successfulFixes.get() + " out of " + satisfiedConflictPairs.get() + " projects (" + failedFixes.get() + " were not fixed)");
         System.out.println("Number of llm requests " + llmRequests.get());
         for (ConflictType conflictType : conflicts.keySet()) {
-            System.out.println("Detected "+conflicts.get(conflictType).get()+" "+conflictType+" conflicts");
+            System.out.println("Detected " + conflicts.get(conflictType).get() + " " + conflictType + " conflicts");
         }
 
         for (String solverName : errorsAssignedToSolvers.keySet()) {
-            System.out.println("Assigned "+errorsAssignedToSolvers.get(solverName).get()+" errors to "+solverName+"");
+            System.out.println("Assigned " + errorsAssignedToSolvers.get(solverName).get() + " errors to " + solverName + "");
         }
 
         DoubleSummaryStatistics stats = successfullLatencies.stream()
@@ -456,32 +457,31 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
         double median;
         int size = sorted.size();
-        if (size % 2 == 0) {
-            median = (sorted.get(size / 2 - 1) + sorted.get(size / 2)) / 2.0;
-        } else {
-            median = sorted.get(size / 2);
+        if(size > 1) {
+            if (size % 2 == 0) {
+                median = (sorted.get(size / 2 - 1) + sorted.get(size / 2)) / 2.0;
+            } else {
+                median = sorted.get(size / 2);
+            }
+            System.out.println("Median: " + median);
+
+
+            double p25 = sorted.get((int) (0.25 * (size - 1)));
+            double p75 = sorted.get((int) (0.75 * (size - 1)));
+            System.out.println("25th percentile: " + p25);
+            System.out.println("75th percentile: " + p75);
+
+
+            double mean = stats.getAverage();
+            double variance = successfullLatencies.stream()
+                    .mapToDouble(d -> Math.pow(d - mean, 2))
+                    .average()
+                    .orElse(Double.NaN);
+            double stdDev = Math.sqrt(variance);
+
+            System.out.println("Variance: " + variance);
+            System.out.println("Standard Deviation: " + stdDev);
         }
-        System.out.println("Median: " + median);
-
-
-
-
-        double p25 = sorted.get((int) (0.25 * (size - 1)));
-        double p75 = sorted.get((int) (0.75 * (size - 1)));
-        System.out.println("25th percentile: " + p25);
-        System.out.println("75th percentile: " + p75);
-
-
-
-        double mean = stats.getAverage();
-        double variance = successfullLatencies.stream()
-                .mapToDouble(d -> Math.pow(d - mean, 2))
-                .average()
-                .orElse(Double.NaN);
-        double stdDev = Math.sqrt(variance);
-
-        System.out.println("Variance: " + variance);
-        System.out.println("Standard Deviation: " + stdDev);
     }
 
     public static boolean validateFix(Context context) {
@@ -646,9 +646,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
             System.out.println(trimmedBrokenCode + " is not reducible");
         } else {
             if (context.getErrorSet().containsKey(trimmedBrokenCode)) {
-                int offset = context.getCompileError().line - context.getErrorSet().get(trimmedBrokenCode).start();
                 context.getProposedChanges().add(new ProposedChange(context.getStrippedClassName(), context.getErrorSet().get(trimmedBrokenCode).code(), context.getCompileError().file,
-                        offset + context.getErrorSet().get(trimmedBrokenCode).start(), offset + context.getErrorSet().get(trimmedBrokenCode).end()));
+                        brokenCode.start(), brokenCode.end()));
                 System.out.println("Similar error in proposed changes. Changed " + trimmedBrokenCode + " to " + context.getErrorSet().get(trimmedBrokenCode).code() + ". Added past fix with position adjustment");
                 return;
             }
@@ -679,18 +678,18 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
         updateConflicts(conflictTypes);
 
-for (CodeConflictSolver codeConflictSolver : codeConflictSolvers) {
-    if (codeConflictSolver.errorIsTargetedBySolver(context.getCompileError(), brokenCode, errorLocation, conflictTypes)) {
-        ProposedChange proposedChange = codeConflictSolver.solveConflict(context.getCompileError(), brokenCode, errorLocation);
-        if(proposedChange != null) {
-            System.out.println(codeConflictSolver.getClass().getName() + " proposed " + proposedChange.code());
-            updateSolvers(codeConflictSolver.getClass().getName());
-            context.getProposedChanges().add(proposedChange);
-            context.getErrorSet().put(brokenCode.code().trim(), proposedChange);
-            return;
+        for (CodeConflictSolver codeConflictSolver : codeConflictSolvers) {
+            if (codeConflictSolver.errorIsTargetedBySolver(context.getCompileError(), brokenCode, errorLocation, conflictTypes)) {
+                ProposedChange proposedChange = codeConflictSolver.solveConflict(context.getCompileError(), brokenCode, errorLocation);
+                if (proposedChange != null) {
+                    System.out.println(codeConflictSolver.getClass().getName() + " proposed " + proposedChange.code());
+                    updateSolvers(codeConflictSolver.getClass().getName());
+                    context.getProposedChanges().add(proposedChange);
+                    context.getErrorSet().put(brokenCode.code().trim(), proposedChange);
+                    return;
+                }
+            }
         }
-    }
-}
 
         System.out.println("Target class: " + errorLocation.className());
         System.out.println("Target method: " + errorLocation.methodName());
@@ -703,7 +702,7 @@ for (CodeConflictSolver codeConflictSolver : codeConflictSolvers) {
         return str.substring(1, str.length() - 1);
     }
 
-    public static void updateConflicts(List<ConflictType> types){
+    public static void updateConflicts(List<ConflictType> types) {
         for (ConflictType conflictType : types) {
             conflicts.putIfAbsent(conflictType, new AtomicInteger());
 
@@ -711,7 +710,7 @@ for (CodeConflictSolver codeConflictSolver : codeConflictSolvers) {
         }
     }
 
-    public static void updateSolvers(String solverName){
+    public static void updateSolvers(String solverName) {
         errorsAssignedToSolvers.putIfAbsent(solverName, new AtomicInteger());
 
         errorsAssignedToSolvers.get(solverName).incrementAndGet();

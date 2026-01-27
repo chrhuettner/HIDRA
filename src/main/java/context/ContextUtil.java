@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class ContextUtil {
 
@@ -206,10 +207,14 @@ public static String getClassNameOfVariable(String variableName, Path path, int 
         CleanedLines cleanedLines = cleanLines(allLines, lineNumber);
 
         allLines = cleanedLines.lines();
-
-        Pattern declarationPattern = Pattern.compile(
-                "\\b([A-Za-z_][A-Za-z0-9_]*)\\s+(" + variableName + ")\\s*[,|;|=|\\)]");
-
+        Pattern declarationPattern;
+        try {
+            declarationPattern = Pattern.compile(
+                    "\\b([A-Za-z_][A-Za-z0-9_]*)\\s+(" + variableName + ")\\s*[,|;|=|\\)]");
+        }catch (PatternSyntaxException e){
+            System.err.println("Invalid declaration pattern: " + e.getMessage());
+            return null;
+        }
         for (int i = Math.min(cleanedLines.indexAfterCleaning(), allLines.size() - 1); i >= 0; i--) {
             String line = allLines.get(i);
             int variableIndex = line.indexOf(variableName);

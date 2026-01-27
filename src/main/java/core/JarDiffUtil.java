@@ -95,8 +95,14 @@ public class JarDiffUtil {
 
         List<SimilarityResult> similarityResults = new ArrayList<>();
         if (!methodsWithSameName.isEmpty()) {
-            similarityResults = getSimilarityOfMethods(wordSimilarityModel, similarMethods, getFullMethodSignature(methodsWithSameName.get(0).getOldMethod().get().toString(),
-                    methodsWithSameName.get(0).getReturnType().getOldReturnType().toString(), true, methodsWithSameName.get(0).getParameters()), SIMILARITY_LIMIT);
+            if (methodsWithSameName.get(0).getOldMethod().isPresent()) {
+                similarityResults = getSimilarityOfMethods(wordSimilarityModel, similarMethods, getFullMethodSignature(methodsWithSameName.get(0).getOldMethod().get().toString(),
+                        methodsWithSameName.get(0).getReturnType().getOldReturnType().toString(), true, methodsWithSameName.get(0).getParameters()), SIMILARITY_LIMIT);
+            } else if (methodsWithSameName.get(0).getNewMethod().isPresent()) {
+                similarityResults = getSimilarityOfMethods(wordSimilarityModel, similarMethods, getFullMethodSignature(methodsWithSameName.get(0).getNewMethod().get().toString(),
+                        methodsWithSameName.get(0).getReturnType().getNewReturnType().toString(), true, methodsWithSameName.get(0).getParameters()), SIMILARITY_LIMIT);
+            }
+
         }
 
         return new ClassDiffResult(changes.classResult(), methodsWithSameName, similarityResults, constructors);
@@ -303,9 +309,11 @@ public class JarDiffUtil {
 
 
         try {
-            report.append(Modifier.toString(field.getModifiers()) + " " + field.getType().getName() + " " + field.getName());
+            if (field != null) {
+                report.append(Modifier.toString(field.getModifiers())).append(" ").append(field.getType().getName()).append(" ").append(field.getName());
+            }
         } catch (NotFoundException e) {
-            throw new RuntimeException(e);
+            System.err.println("Could not find field: " + jApiField.getName());
         }
 
         String compatibilityChange = joinCompatibilityChanges(compatibilityChanges);
@@ -480,21 +488,21 @@ public class JarDiffUtil {
         ConcurrentHashMap<String, List<double[]>> embeddings = new ConcurrentHashMap<>();
 
         String strippedFileName = this.file1;
-        if(strippedFileName.contains("/")){
-            strippedFileName = strippedFileName.substring(strippedFileName.lastIndexOf("/")+1);
+        if (strippedFileName.contains("/")) {
+            strippedFileName = strippedFileName.substring(strippedFileName.lastIndexOf("/") + 1);
         }
-        if(strippedFileName.contains("\\")){
-            strippedFileName = strippedFileName.substring(strippedFileName.lastIndexOf("\\")+1);
+        if (strippedFileName.contains("\\")) {
+            strippedFileName = strippedFileName.substring(strippedFileName.lastIndexOf("\\") + 1);
         }
 
-        if(strippedFileName.endsWith(".jar")){
+        if (strippedFileName.endsWith(".jar")) {
             strippedFileName = strippedFileName.substring(0, strippedFileName.lastIndexOf("."));
         }
 
-        Path cachePath = Path.of("embeddings/"+ strippedFileName);
-        if(Files.exists(cachePath)){
+        Path cachePath = Path.of("embeddings/" + strippedFileName);
+        if (Files.exists(cachePath)) {
             try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(cachePath.toFile()))) {
-                System.out.println("Loading "+strippedFileName+" from cache");
+                System.out.println("Loading " + strippedFileName + " from cache");
                 return (ConcurrentHashMap) in.readObject();
             } catch (IOException | ClassNotFoundException e) {
                 e.printStackTrace();
@@ -508,7 +516,7 @@ public class JarDiffUtil {
             }
         }
 
-        if(methods.isEmpty()) {
+        if (methods.isEmpty()) {
             return embeddings;
         }
         System.out.println("Creating embeddings folder for caching");
@@ -597,7 +605,7 @@ public class JarDiffUtil {
     }
 
     public static Map<String, Double> getClassMethodsSimilarity(ConcurrentHashMap<String, List<double[]>> embeddings) {
-       HashMap<String, Double> classMethodsSimilarity = new HashMap<>();
+        HashMap<String, Double> classMethodsSimilarity = new HashMap<>();
         for (Map.Entry<String, List<double[]>> entry : embeddings.entrySet()) {
             List<double[]> embeddingsOfClass = entry.getValue();
             double sumOfSimilarities = 0;

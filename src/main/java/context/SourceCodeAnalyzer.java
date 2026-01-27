@@ -22,7 +22,6 @@ import java.util.jar.JarFile;
 public class SourceCodeAnalyzer {
 
     private String sourceDirectory;
-    private Launcher launcher;
     private CtModel model;
 
     private static ConcurrentHashMap<Long, ConcurrentHashMap<String, SourceCodeAnalyzer>> concurrentInstances;
@@ -35,7 +34,7 @@ public class SourceCodeAnalyzer {
         return getLazyLoadedInstance(sourceDirectory);
     }
 
-    public static void removeCachedJarDiffsForThread() {
+    public static void removeCachedAnalysersForThread() {
         long id = Thread.currentThread().threadId();
         System.out.println("THREAD WITH ID "+id+" RELEASES SOURCECODEANALYZER CACHE");
         System.out.println("GLOBAL SOURCECODEANALYZER CACHE SIZE BEFORE: "+concurrentInstances.keySet().size());

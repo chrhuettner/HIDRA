@@ -106,8 +106,8 @@ public class ContainerUtil {
             List<String> lines = Files.readAllLines(getPathWithRespectToIteration(directory, fileName, className, iteration, true));
 
             for (ProposedChange change : changes) {
-                lines.set(change.start() - 1, change.code());
-                for (int i = change.start(); i < change.end(); i++) {
+                lines.set(change.start(), change.code());
+                for (int i = change.start()+1; i < change.end(); i++) {
                     lines.set(i, "");
                 }
             }
@@ -140,9 +140,9 @@ public class ContainerUtil {
         //if (context.getIteration() == 0) {
         if (!Files.exists(classPath.path())) {
             File classFileFolder;
-            if(context.getIteration() == 0){
+            if (context.getIteration() == 0) {
                 classFileFolder = context.getOutputDirClasses();
-            }else{
+            } else {
                 classFileFolder = new File(context.getTargetDirectoryFixedClasses());
             }
             extractClassFromContainer(classFileFolder, context.getDockerClient(), context.getBrokenUpdateImage(), context.getCompileError().file, context.getStrippedFileName(), context.getIteration());
@@ -157,8 +157,8 @@ public class ContainerUtil {
         File outputFile;
         if (iteration == 0) {
             outputFile = new File(outputDir, outputNameModifier + entry.getName().substring(entry.getName().lastIndexOf('/') + 1));
-        }else{
-            outputFile = new File(outputDir, "iteration_"+(iteration-1)+"/"+outputNameModifier + entry.getName().substring(entry.getName().lastIndexOf('/') + 1));
+        } else {
+            outputFile = new File(outputDir, "iteration_" + (iteration - 1) + "/" + outputNameModifier + entry.getName().substring(entry.getName().lastIndexOf('/') + 1));
         }
 
         try (FileOutputStream fos = new FileOutputStream(outputFile)) {
@@ -308,51 +308,60 @@ public class ContainerUtil {
     public static BrokenCode readBrokenLine(String className, String directory, String fileName, int[] indices, int iteration) {
         try {
 
-            /*File file = new File(getPathWithRespectToIteration(directory, fileName, className, iteration, true).toUri());
-            if(!file.exists()) {
-                ContainerUtil.extractClassIfNotCached(context);
-            }*/
 
             List<String> allLines = Files.readAllLines(getPathWithRespectToIteration(directory, fileName, className, iteration, true));
 
-            //BufferedReader br = new BufferedReader(new FileReader(directory + "/" + fileName + "_" + className));
-            String brokenCode = null;
-            int start = 0, end = allLines.size();
-            for (int i = 0; i < allLines.size(); i++) {
-                if (i + 1 == indices[0]) {
-                    start = i + 1;
-                    brokenCode = allLines.get(i);
-                    int[] bracketOccurrencesInLine = getBracketOccurrencesInString(brokenCode);
-                    if (!(brokenCode.endsWith(";") || brokenCode.endsWith("{") || brokenCode.endsWith("}") || (bracketOccurrencesInLine[0] == bracketOccurrencesInLine[1] && bracketOccurrencesInLine[0] != 0))) {
-                        for (int j = i + 1; j < allLines.size(); j++) {
-                            String line = allLines.get(j);
+            int end = allLines.size();
+            int start = indices[0]-1;
+            String brokenCode = allLines.get(start);
+            int[] bracketOccurrencesInLine = getBracketOccurrencesInString(brokenCode);
+            if (!(brokenCode.endsWith(";") || brokenCode.endsWith("{") || brokenCode.endsWith("}") || (bracketOccurrencesInLine[0] == bracketOccurrencesInLine[1] && bracketOccurrencesInLine[0] != 0))) {
+                outerloop:
+                for (int j = start + 1; j < allLines.size(); j++) {
+                    String line = allLines.get(j);
 
-                            brokenCode = brokenCode + line;
-                            if (allLines.get(j).endsWith(";")) {
-                                end = j + 1;
-                                break;
-                            }
-
-                            bracketOccurrencesInLine = getBracketOccurrencesInString(brokenCode);
-
-                            if (bracketOccurrencesInLine[0] == bracketOccurrencesInLine[1] && bracketOccurrencesInLine[0] != 0) {
-                                end = j + 1;
-                                break;
-                            }
-
-
-                        }
-                    } else {
-                        end = start;
+                    brokenCode = brokenCode + line;
+                    if (allLines.get(j).endsWith(";")) {
+                        end = j+1;
+                        break;
                     }
-                    return new BrokenCode(brokenCode, start, end, "");
-                }
-            }
 
+                    bracketOccurrencesInLine = getBracketOccurrencesInString(brokenCode);
+
+                    if (bracketOccurrencesInLine[0] == bracketOccurrencesInLine[1] && bracketOccurrencesInLine[0] != 0) {
+                        end = j+1;
+                        break;
+                    }
+
+                    if (bracketOccurrencesInLine[1] > bracketOccurrencesInLine[0]) {
+                        for (int k = start - 1; k >= 0; k--) {
+                            String bracketLine = allLines.get(k);
+                            for (int l = 0; l < bracketLine.length(); l++) {
+                                char c = bracketLine.charAt(l);
+                                if (c == '(') {
+                                    bracketOccurrencesInLine[0]++;
+                                } else if (c == ')') {
+                                    bracketOccurrencesInLine[1]++;
+                                }
+                            }
+                            brokenCode = bracketLine + brokenCode;
+                            if (bracketOccurrencesInLine[1] == bracketOccurrencesInLine[0]) {
+                                start = k;
+                                end = j+1;
+                                break outerloop;
+                            }
+                        }
+                    }
+
+
+                }
+            } else {
+                end = start;
+            }
+            return new BrokenCode(brokenCode, start, end, "");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return null;
     }
 
     public static Path downloadLibrary(String libraryUrl, File targetDirectory, DockerClient dockerClient, String imagePath, String artifactNameWithVersion, int iteration) {
@@ -470,7 +479,6 @@ public class ContainerUtil {
                 if (!path.contains("src/")) {
                     continue;
                 }
-
 
 
                 if (entry.isDirectory()) {
