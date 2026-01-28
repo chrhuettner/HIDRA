@@ -66,6 +66,7 @@ public class MethodChainProvider extends BrokenCodeRegexProvider {
             }
             int closingBraceIndex = ContextUtil.getClosingBraceIndex(brokenCode, openBraceIndex);
             if(closingBraceIndex == -1){
+                index++;
                 continue;
             }
             String potentialInnerChain = brokenCode.substring(openBraceIndex + 1, closingBraceIndex);
@@ -96,6 +97,9 @@ public class MethodChainProvider extends BrokenCodeRegexProvider {
                 continue;
             } else if (c == '(') {
                 int closingBraceIndex = ContextUtil.getClosingBraceIndex(brokenCode, i);
+                if(closingBraceIndex == -1){
+                    break;
+                }
                 String innard = brokenCode.substring(i + 1, closingBraceIndex);
                 String[] parameterTypes = ContextUtil.getParameterTypesOfMethodCall(sourceCodeAnalyzer, methodName + "(" + innard + ")", targetDirectoryClasses,
                         strippedFileName, strippedClassName, line, new File(srcDirectory), classLookupPath,
