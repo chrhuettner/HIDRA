@@ -140,7 +140,9 @@ public class BumpRunner {
         AtomicInteger fixableProjects = new AtomicInteger();
         AtomicInteger imposterProjects = new AtomicInteger();
         AtomicInteger llmRequests = new AtomicInteger();
-        List<Double> successfullLatencies = new ArrayList<>();
+        List<Double> successfulLatencies = new ArrayList<>();
+        List<Double> successfulIterations = new ArrayList<>();
+        List<Double> successfulRetries = new ArrayList<>();
 
         int limit = bumpConfig.getThreads();
         long globalStartTime = System.currentTimeMillis();
@@ -399,7 +401,9 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
                     if (errorsWereFixed) {
                         System.out.println("Fixed " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ")");
-                        successfullLatencies.add((double) diff);
+                        successfulLatencies.add((double) diff);
+                        successfulIterations.add((double) amountOfIterations);
+                        successfulRetries.add((double) amountOfRetries);
                         successfulFixes.getAndIncrement();
                     } else {
                         System.out.println("Could not fix " + strippedFileName);
@@ -439,11 +443,21 @@ Caused by: java.util.zip.ZipException: zip END header not found
             System.out.println("Assigned " + errorsAssignedToSolvers.get(solverName).get() + " errors to " + solverName + "");
         }
 
-        DoubleSummaryStatistics stats = successfullLatencies.stream()
-                .mapToDouble(Double::doubleValue)
-                .summaryStatistics();
+
 
         System.out.println("Latency statistics: ");
+        printStatistics(successfulLatencies);
+        System.out.println("Iteration statistics: ");
+        printStatistics(successfulIterations);
+        System.out.println("Retry statistics: ");
+        printStatistics(successfulRetries);
+
+    }
+
+    public static void printStatistics(List<Double> list){
+        DoubleSummaryStatistics stats = list.stream()
+                .mapToDouble(Double::doubleValue)
+                .summaryStatistics();
 
         System.out.println("Average: " + stats.getAverage());
         System.out.println("Min: " + stats.getMin());
@@ -451,7 +465,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
         System.out.println("Count: " + stats.getCount());
 
 
-        List<Double> sorted = successfullLatencies.stream()
+        List<Double> sorted = list.stream()
                 .sorted()
                 .toList();
 
@@ -473,7 +487,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
 
             double mean = stats.getAverage();
-            double variance = successfullLatencies.stream()
+            double variance = list.stream()
                     .mapToDouble(d -> Math.pow(d - mean, 2))
                     .average()
                     .orElse(Double.NaN);
