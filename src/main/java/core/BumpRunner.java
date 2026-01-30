@@ -191,11 +191,11 @@ public class BumpRunner {
                     String preCommitReproductionCommand = cleanString(jsonNode.get("preCommitReproductionCommand").toString());
                     String breakingUpdateReproductionCommand = cleanString(jsonNode.get("breakingUpdateReproductionCommand").toString());
                     String updatedFileType = cleanString(updatedDependency.get("updatedFileType").toString());
-                    if (updatedDependency.get("failureCategory") != null) {
-                        String failureCategory = cleanString(updatedDependency.get("failureCategory").toString());
-
-                        if (failureCategory != null && !failureCategory.equals("COMPILATION_FAILURE")) {
-                            System.out.println(project + " is not a compilation failure!");
+                    if (jsonNode.get("failureCategory") != null) {
+                        String failureCategory = cleanString(jsonNode.get("failureCategory").toString());
+                        System.out.println("Failure category: " + failureCategory);
+                        if (failureCategory != null && failureCategory.equals("TEST_FAILURE")) {
+                            System.out.println(project + " is a test failure (it therefore gets skipped)!");
                             return;
                         }
                     }
