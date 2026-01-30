@@ -36,7 +36,11 @@ public class ContainerUtil {
             int lineNumber = 1;
             while ((line = br.readLine()) != null) {
                 if (line.matches(regex)) {
-                    return line.substring(line.indexOf("extends ") + "extends ".length(), line.indexOf("{")).trim();
+                    try {
+                        return line.substring(line.indexOf("extends ") + "extends ".length(), line.indexOf("{")).trim();
+                    } catch (StringIndexOutOfBoundsException e) {
+                        System.err.println("Class declaration does not contain 'extends' keyword " + line);
+                    }
                 }
             }
         } catch (IOException e) {

@@ -278,7 +278,7 @@ public class SourceCodeAnalyzer {
                                         boolean found = true;
 
                                         if (isVarargs) {
-                                            outerloop: for (int i = 0; i < types.length; i++) {
+                                            outerloop: for (int i = 0; i < Math.min(parameterTypes.length, types.length); i++) {
                                                 if(i != types.length-1) {
                                                     if (!parameterIsCompatibleWithType(parameterTypes[i], types[i].getClassName())) {
                                                         found = false;

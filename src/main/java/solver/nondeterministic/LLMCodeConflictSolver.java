@@ -441,13 +441,18 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
         return true;
     }
 
+    private String cleanClassName(String className) {
+        return className.replaceAll(" ", "").replaceAll("\\?", "generic");
+    }
+
     @Override
     public ProposedChange solveConflict(LogParser.CompileError compileError, BrokenCode brokenCode, ErrorLocation errorLocation) {
         ConflictResolutionResult result = null;
 
         String cleanedProviderModelName = context.getActiveProvider().getModel().replaceAll("\\W+", "");
-        Path promptFilePath = Path.of(context.getTargetDirectoryPrompts() + "/iteration_" + context.getIteration() + "/" + context.getStrippedFileName() + "_" + context.getCompileError().line + "_" + errorLocation.className() + "_" + cleanedProviderModelName + ".txt");
-        Path llmResponseFilePath = Path.of(context.getTargetDirectoryLLMResponses() + "/iteration_" + context.getIteration() + "/" + context.getStrippedFileName() + "_" + context.getCompileError().line + "_" + errorLocation.className() + "_" + cleanedProviderModelName + ".txt");
+        String cleanedClassName = cleanClassName(errorLocation.className());
+        Path promptFilePath = Path.of(context.getTargetDirectoryPrompts() + "/iteration_" + context.getIteration() + "/" + context.getStrippedFileName() + "_" + context.getCompileError().line + "_" + cleanedClassName + "_" + cleanedProviderModelName + ".txt");
+        Path llmResponseFilePath = Path.of(context.getTargetDirectoryLLMResponses() + "/iteration_" + context.getIteration() + "/" + context.getStrippedFileName() + "_" + context.getCompileError().line + "_" + cleanedClassName + "_" + cleanedProviderModelName + ".txt");
 
         if (!usePromptCaching || !Files.exists(llmResponseFilePath)) {
             String prompt = buildPrompt(brokenCode, errorLocation, context.getIteration());
