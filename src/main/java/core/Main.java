@@ -34,6 +34,7 @@ public class Main {
             System.out.println("Output Path: " + config.getPathToOutput());
             System.out.println("LLM provider: " + config.getLlmProvider());
             System.out.println("LLM name: " + config.getLlmName());
+            System.out.println("LLM temperature: " + config.getTemperature());
             System.out.println("Docker host: " + config.getDockerHostUri());
             System.out.println("Docker registry: " + config.getDockerRegistryUri());
             System.out.println("Word Similarity Model: " + config.getWordSimilarityModel());
@@ -43,7 +44,7 @@ public class Main {
             System.out.println("Disabled Prompt Components: " + config.getDisabledPromptComponents());
 
             System.out.println("------------------------------");
-            System.out.println("Executing BUMP solver:");
+            System.out.println("Starting code-related dependency conflict solving");
 
 
 

@@ -30,10 +30,10 @@ public abstract class BaseLLMProvider implements LLMProvider {
     }
 
     @Override
-    public ConflictResolutionResult sendPromptAndReceiveResponse(String prompt, String context) {
+    public ConflictResolutionResult sendPromptAndReceiveResponse(String prompt, String context, double temperature, double top_k) {
         String json;
         try {
-            json = mapper.writeValueAsString(getPromptWithContext(prompt, context));
+            json = mapper.writeValueAsString(getPromptWithContext(prompt, context, temperature, top_k));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -84,7 +84,7 @@ public abstract class BaseLLMProvider implements LLMProvider {
         return addHeadersToBuilder(baseRequest).build();
     }
 
-    public abstract Object getPromptWithContext(String prompt, String context);
+    public abstract Object getPromptWithContext(String prompt, String context, double temperature, double top_k);
 
     public abstract String getUrl();
 

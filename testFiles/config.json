@@ -1,7 +1,7 @@
 {
-  "pathToBUMPFolder": "testFiles/BUMPSubset",
+  "pathToBUMPFolder": "testFiles/customProjectTest",
   "threads": 1,
-  "maxIterations": 4,
+  "maxIterations": 2,
   "maxRetries": 0,
   "pathToOutput": "testFiles",
   "llmProvider": "ollama",
@@ -12,5 +12,6 @@
   "dockerPassword": "",
   "dockerRegistryUri": "",
   "wordSimilarityModel": "nomic-embed-text",
-  "llmApiKey": ""
+  "llmApiKey": "",
+  "temperature": 0.5
 }

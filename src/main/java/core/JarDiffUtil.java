@@ -704,6 +704,9 @@ public class JarDiffUtil {
                         continue;
                     }
                     CtMethod oldMethod = jApiMethod.getOldMethod().orElse(jApiMethod.getNewMethod().orElse(null));
+                    if(oldMethod == null) {
+                        continue;
+                    }
                     for (int i = 0; i < parameters.length; i++) {
                         try {
                             if (!SourceCodeAnalyzer.parameterIsCompatibleWithType(parameters[i], oldMethod.getParameterTypes()[i].getName())) {
@@ -711,7 +714,7 @@ public class JarDiffUtil {
                                 continue outerloop;
                             }
                         } catch (NotFoundException e) {
-                            throw new RuntimeException(e);
+                            continue outerloop;
                         }
                     }
                     return jApiMethod;

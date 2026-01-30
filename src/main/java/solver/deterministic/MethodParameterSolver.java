@@ -36,6 +36,9 @@ public class MethodParameterSolver extends ContextAwareSolver {
         JarDiffUtil jarDiffUtil = JarDiffUtil.getInstance(context.getTargetPathOld().toString(), context.getTargetPathNew().toString());
 
         JApiClass jApiClass = jarDiffUtil.getClassByName(errorLocation.className());
+        if(jApiClass == null){
+            return null;
+        }
         JApiMethod jApiMethod = jarDiffUtil.getMethodOfClass(jApiClass, errorLocation.methodName(), errorLocation.targetMethodParameterClassNames());
 
         List<Integer> parametersToRemove = new ArrayList<>();

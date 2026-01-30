@@ -21,11 +21,11 @@ public class OllamaProvider extends BaseLLMProvider {
     }
 
     @Override
-    public Object getPromptWithContext(String prompt, String context) {
+    public Object getPromptWithContext(String prompt, String context, double temperature, double top_k) {
         OllamaMessage[] messages = new OllamaMessage[2];
         messages[0] = new OllamaMessage("system", context);
         messages[1] = new OllamaMessage("user", prompt);
-        return new OllamaPrompt(model, messages, false, new OllamaOptions(1));
+        return new OllamaPrompt(model, messages, false, new OllamaOptions(1, temperature, top_k));
     }
 
     @Override

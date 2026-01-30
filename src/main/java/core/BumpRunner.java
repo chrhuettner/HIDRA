@@ -140,9 +140,14 @@ public class BumpRunner {
         AtomicInteger fixableProjects = new AtomicInteger();
         AtomicInteger imposterProjects = new AtomicInteger();
         AtomicInteger llmRequests = new AtomicInteger();
-        List<Double> successfulLatencies = new ArrayList<>();
+        List<Double> successfulDurations = new ArrayList<>();
         List<Double> successfulIterations = new ArrayList<>();
         List<Double> successfulRetries = new ArrayList<>();
+        List<String> successfulProjectIds = new ArrayList<>();
+        ConcurrentHashMap<String, List<Long>> durationPerIteration = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, List<Integer>> retryStartedAtIteration = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, List<HashMap<String, Integer>>> solverCallsPerIteration = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, List<HashMap<String, Integer>>> providerCallsPerIteration = new ConcurrentHashMap<>();
 
         int limit = bumpConfig.getThreads();
         long globalStartTime = System.currentTimeMillis();
@@ -186,9 +191,21 @@ public class BumpRunner {
                     String preCommitReproductionCommand = cleanString(jsonNode.get("preCommitReproductionCommand").toString());
                     String breakingUpdateReproductionCommand = cleanString(jsonNode.get("breakingUpdateReproductionCommand").toString());
                     String updatedFileType = cleanString(updatedDependency.get("updatedFileType").toString());
-                    if (!updatedFileType.equals("JAR")) {
+                    if (updatedDependency.get("failureCategory") != null) {
+                        String failureCategory = cleanString(updatedDependency.get("failureCategory").toString());
+
+                        if (failureCategory != null && !failureCategory.equals("COMPILATION_FAILURE")) {
+                            System.out.println(project + " is not a compilation failure!");
+                            return;
+                        }
+                    }
+
+                    if (updatedFileType != null && !updatedFileType.equals("JAR")) {
+                        System.out.println(project + " is not JAR related!");
                         return;
                     }
+
+
 
                    /* if(totalPairs.get() > 3){
                         return;
@@ -248,7 +265,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                         return;
                     }*/
 
-                    /*if (!file.getName().equals("54abbbde6a1233e1523a9b5f811ea100efb5dead.json")) {
+                    /*if (!file.getName().equals("fe15d2a6e52b049f6c9e7cc123a5402047a1f01a.json")) {
                         return;
                     }*/
 
@@ -274,7 +291,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     }
 
                     if (!Files.exists(ContainerUtil.getPath(outputDirSrcFiles.getPath(), dependencyArtifactID, strippedFileName))) {
-                        CreateContainerResponse oldContainer = ContainerUtil.pullImageAndCreateContainer(dockerClient, oldUpdateImage);
+                        CreateContainerResponse oldContainer = ContainerUtil.pullImageAndCreateContainer(dockerClient, oldUpdateImage, false);
                         if (ContainerUtil.logFromContainerContainsError(dockerClient, oldContainer, Path.of(directoryOldContainerLogs + "/" + strippedFileName + "_" + project))) {
                             System.out.println(strippedFileName + "_" + project + " is not working despite being in the pre set!!!!");
                             imposterProjects.incrementAndGet();
@@ -312,7 +329,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     }
 
 
-                    boolean errorsWereFixed = false;
+                    boolean buildErrorsWereFixed = false;
+                    boolean allErrorsWereFixed = false;
                     int amountOfIterations = 0;
                     int amountOfRetries = 0;
                     outerloop:
@@ -338,22 +356,33 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
                         // boolean wasImportRelated = false;
                         for (amountOfIterations = 0; amountOfIterations <= bumpConfig.getMaxIterations(); amountOfIterations++) {
+                            long iterationStart = System.currentTimeMillis();
                             try {
                                 for (int j = 0; j < errors.size(); j++) {
                                     Object error = errors.get(j);
                                     if (!(error instanceof LogParser.CompileError)) {
                                         continue;
                                     }
+                                    solverCallsPerIteration.putIfAbsent(strippedFileName, new ArrayList<>());
+                                    providerCallsPerIteration.putIfAbsent(strippedFileName, new ArrayList<>());
 
                                     context.setCompileError((LogParser.CompileError) error);
                                     context.setStrippedClassName(ContainerUtil.extractClassIfNotCached(context));
 
-                                    fixError(context, errorLocationProviders, codeConflictSolvers);
+                                    fixError(context, errorLocationProviders, codeConflictSolvers,
+                                            solverCallsPerIteration.get(strippedFileName), providerCallsPerIteration.get(strippedFileName));
 
                                 }
 
-                                if (validateFix(context)) {
-                                    errorsWereFixed = true;
+                                updateIterationStatistic(durationPerIteration, strippedFileName, System.currentTimeMillis() - iterationStart);
+
+                                if (validateFix(context, true)) {
+                                    if (validateFix(context, false)) {
+                                        allErrorsWereFixed = true;
+                                        safeResult(context);
+                                        break outerloop;
+                                    }
+                                    buildErrorsWereFixed = true;
                                     safeResult(context);
                                     break outerloop;
                                 } else if (amountOfIterations != bumpConfig.getMaxIterations()) {
@@ -372,6 +401,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
                                     if (!errorsHaveChanged(errors, newErrors)) {
                                         System.out.println("Stopped iteration due to unchanged errors.");
+                                        updateRetryStatistic(retryStartedAtIteration, strippedFileName, context.getIteration());
                                         continue outerloop;
                                     }
 
@@ -389,6 +419,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                             //context.getErrorSet().clear();
                             //context.getProposedChanges().clear();
                             //}
+
                         }
                     }
 
@@ -399,9 +430,10 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     long diff = timeEnd - timeStart;
                     System.out.println("Took " + diff + " ms to process " + project);
 
-                    if (errorsWereFixed) {
-                        System.out.println("Fixed " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ")");
-                        successfulLatencies.add((double) diff);
+                    if (allErrorsWereFixed || buildErrorsWereFixed) {
+                        System.out.println("Fixed " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ", buildOnly: " + buildErrorsWereFixed + ")");
+                        successfulProjectIds.add(strippedFileName);
+                        successfulDurations.add((double) diff);
                         successfulIterations.add((double) amountOfIterations);
                         successfulRetries.add((double) amountOfRetries);
                         successfulFixes.getAndIncrement();
@@ -430,10 +462,50 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
         long globalEndTime = System.currentTimeMillis();
         System.out.println("Took " + (globalEndTime - globalStartTime) + " ms to process all projects");
+
+        List<Double> aggregatedDurationsPerIterationOfAllProjects = new ArrayList<>(bumpConfig.getMaxIterations());
+        List<Integer> aggregatedIterationCountOfAllProjects = new ArrayList<>(bumpConfig.getMaxIterations());
+
+        List<Double> aggregatedDurationsPerIterationOfSuccessfulProjects = new ArrayList<>(bumpConfig.getMaxIterations());
+        List<Integer> aggregatedIterationCountOfSuccessfulProjects = new ArrayList<>(bumpConfig.getMaxIterations());
+
+        List<Double> aggregatedDurationsPerIterationOfUnSuccessfulProjects = new ArrayList<>(bumpConfig.getMaxIterations());
+        List<Integer> aggregatedIterationCountOfUnSuccessfulProjects = new ArrayList<>(bumpConfig.getMaxIterations());
+
+
+        for (int i = 0; i <= bumpConfig.getMaxIterations(); i++) {
+            aggregatedDurationsPerIterationOfSuccessfulProjects.add(0.0);
+            aggregatedIterationCountOfSuccessfulProjects.add(0);
+            aggregatedDurationsPerIterationOfUnSuccessfulProjects.add(0.0);
+            aggregatedIterationCountOfUnSuccessfulProjects.add(0);
+            aggregatedDurationsPerIterationOfAllProjects.add(0.0);
+            aggregatedIterationCountOfAllProjects.add(0);
+        }
+
+        System.out.println("Durations per iteration of successful Projects: ");
+        for (String successfulProjectId : successfulProjectIds) {
+            processDurationStatistic(durationPerIteration, aggregatedDurationsPerIterationOfSuccessfulProjects, aggregatedIterationCountOfSuccessfulProjects, successfulProjectId);
+        }
+
+
+        System.out.println("Durations per iteration of unsuccessful Projects: ");
+        for (String projectId : durationPerIteration.keySet()) {
+            if (!successfulProjectIds.contains(projectId)) {
+                processDurationStatistic(durationPerIteration, aggregatedDurationsPerIterationOfUnSuccessfulProjects, aggregatedIterationCountOfUnSuccessfulProjects, projectId);
+            }
+        }
+
+        System.out.println("Durations per iteration of all Projects: ");
+        for (String projectId : durationPerIteration.keySet()) {
+            processDurationStatistic(durationPerIteration, aggregatedDurationsPerIterationOfAllProjects, aggregatedIterationCountOfAllProjects, projectId);
+
+        }
+
+
         System.out.println(imposterProjects.get() + " projects are not buildable despite being in the pre set!!!");
         System.out.println(satisfiedConflictPairs.get() + " out of " + totalPairs.get() + " project pairs have accessible dependencies");
         System.out.println(fixableProjects.get() + " projects are fixable");
-        System.out.println("Fixed " + successfulFixes.get() + " out of " + satisfiedConflictPairs.get() + " projects (" + failedFixes.get() + " were not fixed)");
+        System.out.println("Fixed " + successfulFixes.get() + " out of " + satisfiedConflictPairs.get() + " projects (" + failedFixes.get() + " of the fixable projects were not fixed)");
         System.out.println("Number of llm requests " + llmRequests.get());
         for (ConflictType conflictType : conflicts.keySet()) {
             System.out.println("Detected " + conflicts.get(conflictType).get() + " " + conflictType + " conflicts");
@@ -444,17 +516,159 @@ Caused by: java.util.zip.ZipException: zip END header not found
         }
 
 
-
-        System.out.println("Latency statistics: ");
-        printStatistics(successfulLatencies);
-        System.out.println("Iteration statistics: ");
+        System.out.println("Duration statistics of successful fixes: ");
+        printStatistics(successfulDurations);
+        System.out.println();
+        System.out.println("Iteration statistics of successful fixes: ");
         printStatistics(successfulIterations);
-        System.out.println("Retry statistics: ");
+        System.out.println();
+        System.out.println("Retry statistics of successful fixes: ");
         printStatistics(successfulRetries);
+        System.out.println();
+        System.out.println("Aggregated iteration durations of successful Projects: ");
+        for (int i = 0; i < aggregatedDurationsPerIterationOfSuccessfulProjects.size(); i++) {
+            System.out.println("Iteration " + i + ": Sum: " + aggregatedDurationsPerIterationOfSuccessfulProjects.get(i) + "ms (count: " + aggregatedIterationCountOfSuccessfulProjects.get(i) + ")");
+        }
 
+        System.out.println();
+
+        System.out.println("Aggregated iteration durations of unsuccessful Projects: ");
+        for (int i = 0; i < aggregatedDurationsPerIterationOfUnSuccessfulProjects.size(); i++) {
+            System.out.println("Iteration " + i + ": " + aggregatedDurationsPerIterationOfUnSuccessfulProjects.get(i) + "ms (count: " + aggregatedIterationCountOfUnSuccessfulProjects.get(i) + ")");
+        }
+
+        System.out.println();
+
+        System.out.println("Aggregated iteration durations of all Projects: ");
+        for (int i = 0; i < aggregatedDurationsPerIterationOfUnSuccessfulProjects.size(); i++) {
+            System.out.println("Iteration " + i + ": " + aggregatedDurationsPerIterationOfAllProjects.get(i) + "ms (count: " + aggregatedIterationCountOfAllProjects.get(i) + ")");
+        }
+
+        System.out.println();
+
+        List<List<Double>> durationsPerIterationOfNonSuccessfulProjects = new ArrayList<>();
+        List<List<Double>> durationsPerIterationOfSuccessfulProjects = new ArrayList<>();
+        List<List<Double>> durationsPerIterationOfAllProjects = new ArrayList<>();
+
+        durationsPerIterationOfNonSuccessfulProjects.add(new ArrayList<>());
+        for (String projectId : durationPerIteration.keySet()) {
+            for (int i = 0; i < durationPerIteration.get(projectId).size(); i++) {
+                if (!successfulProjectIds.contains(projectId)) {
+                    if(durationsPerIterationOfNonSuccessfulProjects.size()<=i){
+                        durationsPerIterationOfNonSuccessfulProjects.add(new ArrayList<>());
+                    }
+                    durationsPerIterationOfNonSuccessfulProjects.get(i).add((double)durationPerIteration.get(projectId).get(i));
+                }else{
+                    if(durationsPerIterationOfSuccessfulProjects.size()<=i){
+                        durationsPerIterationOfSuccessfulProjects.add(new ArrayList<>());
+                    }
+                    durationsPerIterationOfSuccessfulProjects.get(i).add((double)durationPerIteration.get(projectId).get(i));
+                }
+                if(durationsPerIterationOfAllProjects.size()<=i){
+                    durationsPerIterationOfAllProjects.add(new ArrayList<>());
+                }
+                durationsPerIterationOfAllProjects.get(i).add((double)durationPerIteration.get(projectId).get(i));
+            }
+
+        }
+
+        System.out.println("Statistics of the duration of successful iterations: ");
+        for (int i = 0; i < durationsPerIterationOfSuccessfulProjects.size(); i++) {
+            System.out.println("Iteration "+i+": ");
+            printStatistics(durationsPerIterationOfSuccessfulProjects.get(i));
+        }
+
+        System.out.println();
+
+
+        System.out.println("Statistics of the duration of non-successful iterations: ");
+        for (int i = 0; i < durationsPerIterationOfNonSuccessfulProjects.size(); i++) {
+            System.out.println("Iteration "+i+": ");
+            printStatistics(durationsPerIterationOfNonSuccessfulProjects.get(i));
+        }
+
+        System.out.println();
+
+        System.out.println("Statistics of the duration of all iterations: ");
+        for (int i = 0; i < durationsPerIterationOfAllProjects.size(); i++) {
+            System.out.println("Iteration "+i+": ");
+            printStatistics(durationsPerIterationOfAllProjects.get(i));
+        }
+
+        System.out.println();
+
+
+
+        System.out.println("Provider calls of all Projects: ");
+        printSolverOrProviderStatistics(providerCallsPerIteration);
+
+        System.out.println();
+
+        System.out.println("Solver calls of all Projects: ");
+        printSolverOrProviderStatistics(solverCallsPerIteration);
+
+        System.out.println();
+
+        System.out.println("Aggregated provider calls of all successfully fixed Projects: ");
+        printSolverOrProviderStatisticsOfProject(getAggregatedSolverOrProviderStatistics(providerCallsPerIteration, successfulProjectIds, bumpConfig.getMaxIterations()));
+
+        System.out.println();
+
+        System.out.println("Aggregated solver calls of all successfully fixed Projects: ");
+        printSolverOrProviderStatisticsOfProject(getAggregatedSolverOrProviderStatistics(solverCallsPerIteration, successfulProjectIds, bumpConfig.getMaxIterations()));
     }
 
-    public static void printStatistics(List<Double> list){
+    private static void printSolverOrProviderStatistics(ConcurrentHashMap<String, List<HashMap<String, Integer>>> data) {
+        for (String projectId : data.keySet()) {
+            List<HashMap<String, Integer>> solverCallsPerIterationOfProject = data.get(projectId);
+            System.out.println(projectId + ": ");
+            printSolverOrProviderStatisticsOfProject(solverCallsPerIterationOfProject);
+        }
+    }
+
+    private static void printSolverOrProviderStatisticsOfProject(List<HashMap<String, Integer>> data) {
+        for (int i = 0; i < data.size(); i++) {
+            System.out.println("  Iteration " + i + ": ");
+            for (String name : data.get(i).keySet()) {
+                System.out.println("    " + name + ": " + data.get(i).get(name));
+            }
+        }
+    }
+
+    private static List<HashMap<String, Integer>> getAggregatedSolverOrProviderStatistics(ConcurrentHashMap<String, List<HashMap<String, Integer>>> data, List<String> successfulProjectIds, int maxIterations) {
+        List<HashMap<String, Integer>> aggregatedCallsOfSuccessfulProjects = new ArrayList<>();
+        for (int i = 0; i < maxIterations; i++) {
+            aggregatedCallsOfSuccessfulProjects.add(new HashMap<>());
+        }
+        for (String projectId : data.keySet()) {
+            if (!successfulProjectIds.contains(projectId)) {
+                continue;
+            }
+            List<HashMap<String, Integer>> callsPerIterationOfProject = data.get(projectId);
+            for (int i = 0; i < callsPerIterationOfProject.size(); i++) {
+                for (String name : callsPerIterationOfProject.get(i).keySet()) {
+                    //System.out.println("    " + name + ": " + callsPerIterationOfProject.get(i).get(name));
+                    int existingCount = 0;
+                    if (aggregatedCallsOfSuccessfulProjects.get(i).containsKey(name)) {
+                        existingCount = aggregatedCallsOfSuccessfulProjects.get(i).get(name);
+                    }
+                    aggregatedCallsOfSuccessfulProjects.get(i).put(name, existingCount + callsPerIterationOfProject.get(i).get(name));
+                }
+            }
+        }
+        return aggregatedCallsOfSuccessfulProjects;
+    }
+
+    private static void processDurationStatistic(ConcurrentHashMap<String, List<Long>> durationPerIteration, List<Double> aggregatedDurationsPerIterationOfSuccessfulProjects, List<Integer> aggregatedIterationCountOfSuccessfulProjects, String projectId) {
+        System.out.println(projectId + ": " + durationPerIteration.get(projectId));
+        for (int i = 0; i < durationPerIteration.get(projectId).size(); i++) {
+            double castDuration = (double) durationPerIteration.get(projectId).get(i);
+            aggregatedDurationsPerIterationOfSuccessfulProjects.set(i, aggregatedDurationsPerIterationOfSuccessfulProjects.get(i) + castDuration);
+            aggregatedIterationCountOfSuccessfulProjects.set(i, aggregatedIterationCountOfSuccessfulProjects.get(i) + 1);
+        }
+    }
+
+    public static void printStatistics(List<Double> list) {
         DoubleSummaryStatistics stats = list.stream()
                 .mapToDouble(Double::doubleValue)
                 .summaryStatistics();
@@ -471,7 +685,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
         double median;
         int size = sorted.size();
-        if(size > 1) {
+        if (size > 1) {
             if (size % 2 == 0) {
                 median = (sorted.get(size / 2 - 1) + sorted.get(size / 2)) / 2.0;
             } else {
@@ -498,7 +712,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
         }
     }
 
-    public static boolean validateFix(Context context) {
+    public static boolean validateFix(Context context, boolean buildOnly) {
         HashMap<String, List<ProposedChange>> groupedChangesByClassName = new HashMap<>();
 
         for (ProposedChange proposedChange : context.getProposedChanges()) {
@@ -508,7 +722,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
             groupedChangesByClassName.get(proposedChange.className()).add(proposedChange);
         }
 
-        CreateContainerResponse container = ContainerUtil.pullImageAndCreateContainer(context.getDockerClient(), context.getBrokenUpdateImage());
+        CreateContainerResponse container = ContainerUtil.pullImageAndCreateContainer(context.getDockerClient(), context.getBrokenUpdateImage(), buildOnly);
 
         List<String> classesToReplace = new ArrayList<>(context.getFixedClassesFromPastIterations().keySet());
 
@@ -648,7 +862,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
     }
 
 
-    public static void fixError(Context context, List<ErrorLocationProvider> errorLocationProviders, List<CodeConflictSolver> codeConflictSolvers) throws IOException, ClassNotFoundException {
+    public static void fixError(Context context, List<ErrorLocationProvider> errorLocationProviders, List<CodeConflictSolver> codeConflictSolvers,
+                                List<HashMap<String, Integer>> solverCallsPerIteration, List<HashMap<String, Integer>> providerCallsPerIteration) throws IOException, ClassNotFoundException {
         BrokenCode brokenCode = ContainerUtil.readBrokenLine(context.getStrippedClassName(), context.getTargetDirectoryClasses(),
                 context.getStrippedFileName(), new int[]{context.getCompileError().line, context.getCompileError().column}, context.getIteration());
 
@@ -676,7 +891,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                 errorGetsTargetByAtLeastOneProvider = true;
 
                 errorLocation = errorLocationProvider.getErrorLocation(context.getCompileError(), brokenCode);
-
+                updateProviders(errorLocationProvider.getClass().getName(), context.getIteration(), providerCallsPerIteration);
                 break;
             }
         }
@@ -697,7 +912,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                 ProposedChange proposedChange = codeConflictSolver.solveConflict(context.getCompileError(), brokenCode, errorLocation);
                 if (proposedChange != null) {
                     System.out.println(codeConflictSolver.getClass().getName() + " proposed " + proposedChange.code());
-                    updateSolvers(codeConflictSolver.getClass().getName());
+                    updateSolvers(codeConflictSolver.getClass().getName(), context.getIteration(), solverCallsPerIteration);
                     context.getProposedChanges().add(proposedChange);
                     context.getErrorSet().put(brokenCode.code().trim(), proposedChange);
                     return;
@@ -724,10 +939,31 @@ Caused by: java.util.zip.ZipException: zip END header not found
         }
     }
 
-    public static void updateSolvers(String solverName) {
+    public static void updateSolvers(String solverName, int iteration, List<HashMap<String, Integer>> solverCallsPerIteration) {
         errorsAssignedToSolvers.putIfAbsent(solverName, new AtomicInteger());
-
         errorsAssignedToSolvers.get(solverName).incrementAndGet();
+
+        updateProviders(solverName, iteration, solverCallsPerIteration);
     }
+
+    public static void updateProviders(String providerName, int iteration, List<HashMap<String, Integer>> providerCallsPerIteration) {
+        while (providerCallsPerIteration.size() <= iteration) {
+            providerCallsPerIteration.add(new HashMap<>());
+        }
+        if (providerCallsPerIteration.get(iteration).putIfAbsent(providerName, 1) == null) {
+            providerCallsPerIteration.get(iteration).remove(providerName, providerCallsPerIteration.get(iteration).get(providerName) + 1);
+        }
+    }
+
+    public static void updateIterationStatistic(ConcurrentHashMap<String, List<Long>> durationPerIteration, String id, long duration) {
+        durationPerIteration.putIfAbsent(id, new ArrayList<>());
+        durationPerIteration.get(id).add(duration);
+    }
+
+    public static void updateRetryStatistic(ConcurrentHashMap<String, List<Integer>> retryAtIteration, String id, int iteration) {
+        retryAtIteration.putIfAbsent(id, new ArrayList<>());
+        retryAtIteration.get(id).add(iteration);
+    }
+
 
 }

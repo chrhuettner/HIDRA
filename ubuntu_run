@@ -8,7 +8,7 @@ sudo docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$HOST_WORKDIR:/app/workFolder" \
   chrhuettner/dependencyconflictresolver:latest \
-  bump "/app/workFolder/configDockerTest4.json" \
+  bump "/app/workFolder/configDockerTest3.json" \
   2>&1 | tee -a "$log"
 
 

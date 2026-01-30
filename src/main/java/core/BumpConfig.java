@@ -19,6 +19,9 @@ public class BumpConfig {
     private String wordSimilarityModel;
     private String llmApiKey;
     private Set<String> disabledPromptComponents;
+    private double temperature;
+    private double top_k;
+
 
     public String getPathToBUMPFolder() {
         return pathToBUMPFolder;
@@ -138,5 +141,21 @@ public class BumpConfig {
 
     public void setDisabledPromptComponents(Set<String> disabledPromptComponents) {
         this.disabledPromptComponents = disabledPromptComponents;
+    }
+
+    public double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(double temperature) {
+        this.temperature = temperature;
+    }
+
+    public double getTop_k() {
+        return top_k;
+    }
+
+    public void setTop_k(double top_k) {
+        this.top_k = top_k;
     }
 }

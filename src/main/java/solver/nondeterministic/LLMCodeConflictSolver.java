@@ -345,9 +345,9 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
         return candidates.get(0);
     }
 
-    public ConflictResolutionResult sendAndPrintCode(String prompt) {
+    public ConflictResolutionResult sendAndPrintCode(String prompt, double temperature, double top_k) {
         System.out.println(LLMProvider.getModel());
-        ConflictResolutionResult result = LLMProvider.sendPromptAndReceiveResponse(prompt, systemContext);
+        ConflictResolutionResult result = LLMProvider.sendPromptAndReceiveResponse(prompt, systemContext, temperature, top_k);
         System.out.println(result);
         return result;
     }
@@ -462,7 +462,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
 
             for (int i = 0; result == null && i<5; i++) {
                 try {
-                    result = sendAndPrintCode(prompt);
+                    result = sendAndPrintCode(prompt, context.getConfig().getTemperature(), context.getConfig().getTop_k());
                 } catch (AIProviderException e) {
                     e.printStackTrace();
                     try {

@@ -107,7 +107,7 @@ public class ContainerUtil {
 
             for (ProposedChange change : changes) {
                 lines.set(change.start(), change.code());
-                for (int i = change.start()+1; i < change.end(); i++) {
+                for (int i = change.start() + 1; i < change.end(); i++) {
                     lines.set(i, "");
                 }
             }
@@ -203,14 +203,14 @@ public class ContainerUtil {
 
     public static void extractLibraryFromContainer(File targetDirectory, DockerClient dockerClient, String imagePath, String artifactNameWithVersion, int iteration) {
         System.out.println("Fetching library from container (this can take some time)");
-        CreateContainerResponse container = pullImageAndCreateContainer(dockerClient, imagePath);
+        CreateContainerResponse container = pullImageAndCreateContainer(dockerClient, imagePath, false);
         getFileFromContainer(dockerClient, container, artifactNameWithVersion, targetDirectory, "", iteration);
         dockerClient.removeContainerCmd(container.getId()).exec();
     }
 
     public static void extractClassFromContainer(File targetDirectory, DockerClient dockerClient, String imagePath, String className, String fileName, int iteration) {
         System.out.println("Fetching class from container (this can take some time)");
-        CreateContainerResponse container = pullImageAndCreateContainer(dockerClient, imagePath);
+        CreateContainerResponse container = pullImageAndCreateContainer(dockerClient, imagePath, false);
         getFileFromContainer(dockerClient, container, className, targetDirectory, fileName + "_", iteration);
         dockerClient.removeContainerCmd(container.getId()).exec();
     }
@@ -239,7 +239,7 @@ public class ContainerUtil {
     }
 
     public static void getBrokenLogFromContainer(DockerClient dockerClient, String imagePath, String projectName, String fileName, String basePath) {
-        CreateContainerResponse container = pullImageAndCreateContainer(dockerClient, imagePath);
+        CreateContainerResponse container = pullImageAndCreateContainer(dockerClient, imagePath, false);
 
         dockerClient.startContainerCmd(container.getId()).exec();
         dockerClient.waitContainerCmd(container.getId()).start().awaitStatusCode();
@@ -271,6 +271,7 @@ public class ContainerUtil {
 
     public static boolean logFromContainerContainsError(DockerClient dockerClient, CreateContainerResponse container, Path path) {
         dockerClient.startContainerCmd(container.getId()).exec();
+
         dockerClient.waitContainerCmd(container.getId()).start().awaitStatusCode();
         final boolean[] containsError = {false};
         try {
@@ -312,7 +313,7 @@ public class ContainerUtil {
             List<String> allLines = Files.readAllLines(getPathWithRespectToIteration(directory, fileName, className, iteration, true));
 
             int end = allLines.size();
-            int start = indices[0]-1;
+            int start = indices[0] - 1;
             String brokenCode = allLines.get(start);
             int[] bracketOccurrencesInLine = getBracketOccurrencesInString(brokenCode);
             if (!(brokenCode.endsWith(";") || brokenCode.endsWith("{") || brokenCode.endsWith("}") || (bracketOccurrencesInLine[0] == bracketOccurrencesInLine[1] && bracketOccurrencesInLine[0] != 0))) {
@@ -322,14 +323,14 @@ public class ContainerUtil {
 
                     brokenCode = brokenCode + line;
                     if (allLines.get(j).endsWith(";")) {
-                        end = j+1;
+                        end = j + 1;
                         break;
                     }
 
                     bracketOccurrencesInLine = getBracketOccurrencesInString(brokenCode);
 
                     if (bracketOccurrencesInLine[0] == bracketOccurrencesInLine[1] && bracketOccurrencesInLine[0] != 0) {
-                        end = j+1;
+                        end = j + 1;
                         break;
                     }
 
@@ -347,7 +348,7 @@ public class ContainerUtil {
                             brokenCode = bracketLine + brokenCode;
                             if (bracketOccurrencesInLine[1] == bracketOccurrencesInLine[0]) {
                                 start = k;
-                                end = j+1;
+                                end = j + 1;
                                 break outerloop;
                             }
                         }
@@ -410,11 +411,9 @@ public class ContainerUtil {
                             super.onNext(item);
                         }
                     }).awaitCompletion();
-            //TODO: Check if this works for all BUMP projects (it probably wont lol)
             return dockerClient.createContainerCmd(imagePath)
                     .withCmd("sh", "-c",
                             //"mvn clean test -B | tee %s.log")
-                            // Use multiple lines instead of comma seperated scopes because of older maven versions
                             "mvn -B dependency:copy-dependencies -DoutputDirectory=/tmp/dependencies")
                     //"mvn clean package org.apache.maven.plugins:maven-shade-plugin:3.5.0:shade -Dmaven.test.skip=true")
                     .exec();
@@ -424,7 +423,7 @@ public class ContainerUtil {
         }
     }
 
-    public static CreateContainerResponse pullImageAndCreateContainer(DockerClient dockerClient, String imagePath) {
+    public static CreateContainerResponse pullImageAndCreateContainer(DockerClient dockerClient, String imagePath, boolean buildOnly) {
         try {
             dockerClient.pullImageCmd(imagePath)
                     .exec(new PullImageResultCallback() {
@@ -445,7 +444,11 @@ public class ContainerUtil {
                             super.onNext(item);
                         }
                     }).awaitCompletion();
+            if (buildOnly) {
+                return dockerClient.createContainerCmd(imagePath).withCmd("sh", "-c", "mvn clean compile -B | tee %s.log").exec();
+            }
             return dockerClient.createContainerCmd(imagePath).exec();
+
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
