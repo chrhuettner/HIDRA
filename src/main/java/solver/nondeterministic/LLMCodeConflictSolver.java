@@ -442,6 +442,9 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
     }
 
     private String cleanClassName(String className) {
+        if(className == null){
+            return "unknownClass";
+        }
         return className.replaceAll(" ", "").replaceAll("\\?", "generic");
     }
 
