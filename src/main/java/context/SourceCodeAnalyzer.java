@@ -240,7 +240,7 @@ public class SourceCodeAnalyzer {
 
 
     public String getReturnTypeOfMethodFromDependencies(String className, String methodName, String[] parameterTypes, File directory) {
-        if(className == null || methodName == null){
+        if(className == null || methodName == null || parameterTypes == null){
             return null;
         }
 
