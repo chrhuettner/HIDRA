@@ -414,7 +414,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
                         closedCurlyBraces++;
                     }
 
-                    if (openCurlyBraces == closedCurlyBraces && openCurlyBraces != 0) {
+                    if (openCurlyBraces == closedCurlyBraces && openCurlyBraces != 0 && i >= lineNumber - 1) {
                         end = i;
                         break outerloop;
                     }

@@ -14,10 +14,7 @@ import context.ErrorLocationProvider;
 import context.LogParser;
 import context.SourceCodeAnalyzer;
 import docker.ContainerUtil;
-import dto.BrokenCode;
-import dto.ErrorLocation;
-import dto.PathComponents;
-import dto.ProposedChange;
+import dto.*;
 import llm.*;
 import solver.CodeConflictSolver;
 import type.ConflictType;
@@ -146,8 +143,8 @@ public class BumpRunner {
         List<String> successfulProjectIds = new ArrayList<>();
         ConcurrentHashMap<String, List<Long>> durationPerIteration = new ConcurrentHashMap<>();
         ConcurrentHashMap<String, List<Integer>> retryStartedAtIteration = new ConcurrentHashMap<>();
-        ConcurrentHashMap<String, List<HashMap<String, Integer>>> solverCallsPerIteration = new ConcurrentHashMap<>();
-        ConcurrentHashMap<String, List<HashMap<String, Integer>>> providerCallsPerIteration = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, List<HashMap<String, CallDetails>>> solverCallsPerIteration = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, List<HashMap<String, CallDetails>>> providerCallsPerIteration = new ConcurrentHashMap<>();
 
         int limit = bumpConfig.getThreads();
         long globalStartTime = System.currentTimeMillis();
@@ -335,6 +332,12 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     int amountOfRetries = 0;
                     outerloop:
                     for (; amountOfRetries <= bumpConfig.getMaxRetries(); amountOfRetries++) {
+                        if(solverCallsPerIteration.containsKey(strippedFileName)) {
+                            solverCallsPerIteration.get(strippedFileName).clear();
+                        }
+                        if(providerCallsPerIteration.containsKey(strippedFileName)) {
+                            providerCallsPerIteration.get(strippedFileName).clear();
+                        }
                         List<ProposedChange> proposedChanges = new ArrayList<>();
                         HashMap<String, ProposedChange> errorSet = new HashMap<>();
                         Context context = new Context(project, previousVersion, newVersion, dependencyArtifactID, strippedFileName, outputDirClasses, brokenUpdateImage,
@@ -382,9 +385,13 @@ Caused by: java.util.zip.ZipException: zip END header not found
                                         safeResult(context);
                                         break outerloop;
                                     }
-                                    buildErrorsWereFixed = true;
-                                    safeResult(context);
-                                    break outerloop;
+                                    if(!buildErrorsWereFixed) {
+                                        buildErrorsWereFixed = true;
+                                        safeResult(context);
+                                        System.out.println("Fixed build of " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ", buildOnly: " + buildErrorsWereFixed + ")");
+                                        System.out.println("Repair continues to fix test execution");
+                                    }
+
                                 } else if (amountOfIterations != bumpConfig.getMaxIterations()) {
                                     context.setIteration(context.getIteration() + 1);
                                     context.setTargetDirectoryClasses(targetDirectoryFixedClasses);
@@ -461,12 +468,13 @@ Caused by: java.util.zip.ZipException: zip END header not found
         }
 
         long globalEndTime = System.currentTimeMillis();
+        System.out.println("------------ Summary ------------");
         System.out.println("Took " + (globalEndTime - globalStartTime) + " ms to process all projects");
         System.out.println(imposterProjects.get() + " projects are not buildable despite being in the pre set!!!");
         System.out.println(satisfiedConflictPairs.get() + " out of " + totalPairs.get() + " project pairs have accessible dependencies");
         System.out.println(fixableProjects.get() + " projects are fixable");
         System.out.println("Fixed " + successfulFixes.get() + " out of " + satisfiedConflictPairs.get() + " projects (" + failedFixes.get() + " of the fixable projects were not fixed)");
-        System.out.println("Number of llm requests " + llmRequests.get());
+        System.out.println("Number of llm requests: " + llmRequests.get());
         for (ConflictType conflictType : conflicts.keySet()) {
             System.out.println("Detected " + conflicts.get(conflictType).get() + " " + conflictType + " conflicts");
         }
@@ -572,11 +580,11 @@ Caused by: java.util.zip.ZipException: zip END header not found
             }
 
         }
-        System.out.println("------------Summary------------");
         System.out.println("Statistics of the duration of successful iterations: ");
         for (int i = 0; i < durationsPerIterationOfSuccessfulProjects.size(); i++) {
             System.out.println("Iteration "+i+": ");
             printStatistics(durationsPerIterationOfSuccessfulProjects.get(i));
+            System.out.println();
         }
 
         System.out.println();
@@ -586,6 +594,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
         for (int i = 0; i < durationsPerIterationOfNonSuccessfulProjects.size(); i++) {
             System.out.println("Iteration "+i+": ");
             printStatistics(durationsPerIterationOfNonSuccessfulProjects.get(i));
+            System.out.println();
         }
 
         System.out.println();
@@ -594,11 +603,10 @@ Caused by: java.util.zip.ZipException: zip END header not found
         for (int i = 0; i < durationsPerIterationOfAllProjects.size(); i++) {
             System.out.println("Iteration "+i+": ");
             printStatistics(durationsPerIterationOfAllProjects.get(i));
+            System.out.println();
         }
 
         System.out.println();
-
-
 
         System.out.println("Provider calls of all Projects: ");
         printSolverOrProviderStatistics(providerCallsPerIteration);
@@ -607,31 +615,24 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
         System.out.println("Solver calls of all Projects: ");
         printSolverOrProviderStatistics(solverCallsPerIteration);
+      }
 
-        System.out.println();
-
-        System.out.println("Aggregated provider calls of all successfully fixed Projects: ");
-        printSolverOrProviderStatisticsOfProject(getAggregatedSolverOrProviderStatistics(providerCallsPerIteration, successfulProjectIds, bumpConfig.getMaxIterations()));
-
-        System.out.println();
-
-        System.out.println("Aggregated solver calls of all successfully fixed Projects: ");
-        printSolverOrProviderStatisticsOfProject(getAggregatedSolverOrProviderStatistics(solverCallsPerIteration, successfulProjectIds, bumpConfig.getMaxIterations()));
-    }
-
-    private static void printSolverOrProviderStatistics(ConcurrentHashMap<String, List<HashMap<String, Integer>>> data) {
+    private static void printSolverOrProviderStatistics(ConcurrentHashMap<String, List<HashMap<String, CallDetails>>> data) {
         for (String projectId : data.keySet()) {
-            List<HashMap<String, Integer>> solverCallsPerIterationOfProject = data.get(projectId);
+            List<HashMap<String, CallDetails>> solverCallsPerIterationOfProject = data.get(projectId);
             System.out.println(projectId + ": ");
             printSolverOrProviderStatisticsOfProject(solverCallsPerIterationOfProject);
         }
     }
 
-    private static void printSolverOrProviderStatisticsOfProject(List<HashMap<String, Integer>> data) {
+    private static void printSolverOrProviderStatisticsOfProject(List<HashMap<String, CallDetails>> data) {
         for (int i = 0; i < data.size(); i++) {
             System.out.println("  Iteration " + i + ": ");
             for (String name : data.get(i).keySet()) {
-                System.out.println("    " + name + ": " + data.get(i).get(name));
+                System.out.println("    " + name + ": " + data.get(i).get(name).getAmount());
+                for(String callDetails : data.get(i).get(name).getDetails()){
+                    System.out.println("      " + callDetails);
+                }
             }
         }
     }
@@ -864,7 +865,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
 
 
     public static void fixError(Context context, List<ErrorLocationProvider> errorLocationProviders, List<CodeConflictSolver> codeConflictSolvers,
-                                List<HashMap<String, Integer>> solverCallsPerIteration, List<HashMap<String, Integer>> providerCallsPerIteration) throws IOException, ClassNotFoundException {
+                                List<HashMap<String, CallDetails>> solverCallsPerIteration, List<HashMap<String, CallDetails>> providerCallsPerIteration) throws IOException, ClassNotFoundException {
         BrokenCode brokenCode = ContainerUtil.readBrokenLine(context.getStrippedClassName(), context.getTargetDirectoryClasses(),
                 context.getStrippedFileName(), new int[]{context.getCompileError().line, context.getCompileError().column}, context.getIteration());
 
@@ -892,7 +893,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                 errorGetsTargetByAtLeastOneProvider = true;
 
                 errorLocation = errorLocationProvider.getErrorLocation(context.getCompileError(), brokenCode);
-                updateProviders(errorLocationProvider.getClass().getName(), context.getIteration(), providerCallsPerIteration);
+                updateProviders(errorLocationProvider.getClass().getName(), context.getIteration(), providerCallsPerIteration, errorLocation.toString());
                 break;
             }
         }
@@ -913,7 +914,7 @@ Caused by: java.util.zip.ZipException: zip END header not found
                 ProposedChange proposedChange = codeConflictSolver.solveConflict(context.getCompileError(), brokenCode, errorLocation);
                 if (proposedChange != null) {
                     System.out.println(codeConflictSolver.getClass().getName() + " proposed " + proposedChange.code());
-                    updateSolvers(codeConflictSolver.getClass().getName(), context.getIteration(), solverCallsPerIteration);
+                    updateSolvers(codeConflictSolver.getClass().getName(), context.getIteration(), solverCallsPerIteration, codeConflictSolver.getClass().getName() +" changed "+brokenCode.code().trim()+" to "+proposedChange.code());
                     context.getProposedChanges().add(proposedChange);
                     context.getErrorSet().put(brokenCode.code().trim(), proposedChange);
                     return;
@@ -940,22 +941,22 @@ Caused by: java.util.zip.ZipException: zip END header not found
         }
     }
 
-    public static void updateSolvers(String solverName, int iteration, List<HashMap<String, Integer>> solverCallsPerIteration) {
+    public static void updateSolvers(String solverName, int iteration, List<HashMap<String, CallDetails>> solverCallsPerIteration, String detail) {
         errorsAssignedToSolvers.putIfAbsent(solverName, new AtomicInteger());
         errorsAssignedToSolvers.get(solverName).incrementAndGet();
 
-        updateProviders(solverName, iteration, solverCallsPerIteration);
+        updateProviders(solverName, iteration, solverCallsPerIteration, detail);
     }
 
-    public static void updateProviders(String providerName, int iteration, List<HashMap<String, Integer>> providerCallsPerIteration) {
-        if(iteration == 0){
-            providerCallsPerIteration.clear();
-        }
+
+    public static void updateProviders(String providerName, int iteration, List<HashMap<String, CallDetails>> providerCallsPerIteration, String detail) {
         while (providerCallsPerIteration.size() <= iteration) {
             providerCallsPerIteration.add(new HashMap<>());
         }
-        if (providerCallsPerIteration.get(iteration).putIfAbsent(providerName, 1) == null) {
-            providerCallsPerIteration.get(iteration).remove(providerName, providerCallsPerIteration.get(iteration).get(providerName) + 1);
+        if (providerCallsPerIteration.get(iteration).putIfAbsent(providerName, new CallDetails(1, new ArrayList<>(Arrays.asList(detail)))) != null) {
+            CallDetails details = providerCallsPerIteration.get(iteration).get(providerName);
+            details.getDetails().add(detail);
+            details.incrementAmount();
         }
     }
 
