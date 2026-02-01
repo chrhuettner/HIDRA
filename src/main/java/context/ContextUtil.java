@@ -21,7 +21,7 @@ public class ContextUtil {
     private static final Logger log = LoggerFactory.getLogger(ContextUtil.class);
 
     //TODO: Improve this regex so it only allows primitives (and Strings), currently it also allows variables inside the expressions
-    private static final Pattern EXPRESSION_PATTERN =  Pattern.compile(".*[+\\-*/%&|^~<>].*");
+    private static final Pattern EXPRESSION_PATTERN = Pattern.compile(".*[+\\-*/%&|^~<>].*");
 
     public static int getClosingBraceIndex(String s, int start) {
         int openBrackets = 0;
@@ -154,89 +154,119 @@ public class ContextUtil {
         return new CleanedLines(newLines, indexBeforeCleaning, indexAfterCleaning);
     }
 
-public static String getClassNameOfVariable(String variableName, Path path, int lineNumber) {
-    if (variableName == null) {
+    public static String getClassNameOfVariable(String variableName, Path path, int lineNumber) {
+        if (variableName == null) {
+            return null;
+        }
+
+        if (variableName.startsWith("\"") && variableName.endsWith("\"")) {
+            return String.class.getName();
+        }
+
+        if (variableName.equals("true") || variableName.equals("false")) {
+            return Boolean.class.getName();
+        }
+
+        Matcher integerMatcher = Pattern.compile("[-+]?\\d+$").matcher(variableName);
+        if (integerMatcher.find()) {
+            return Integer.class.getName();
+        }
+
+        Matcher longMatcher = Pattern.compile("[-+]?\\d+[lL]$").matcher(variableName);
+        if (longMatcher.find()) {
+            return Long.class.getName();
+        }
+
+        Matcher doubleMatcher = Pattern.compile("[-+]?\\d*\\.?\\d+$").matcher(variableName);
+        if (doubleMatcher.find()) {
+            return Double.class.getName();
+        }
+
+        Matcher floatMatcher = Pattern.compile("[-+]?\\d*\\.?\\d+[fF]$").matcher(variableName);
+        if (floatMatcher.find()) {
+            return Float.class.getName();
+        }
+
+        System.out.println("Not a constant: " + variableName);
+
+        if (variableName.contains("->")) {
+            return Predicate.class.getName();
+        }
+
+        Matcher expressionMatcher = EXPRESSION_PATTERN.matcher(variableName);
+        if (expressionMatcher.find()) {
+            String expressionType = PrimitiveExpressionSolver.getTypeOfPrimitiveExpression(variableName);
+            if (expressionType != null) {
+                return expressionType;
+            }
+        }
+
+        try {
+            List<String> allLines = Files.readAllLines(path);
+
+            CleanedLines cleanedLines = cleanLines(allLines, lineNumber);
+
+            allLines = cleanedLines.lines();
+            Pattern declarationPattern;
+            try {
+                declarationPattern = Pattern.compile(
+                        "\\b([A-Za-z_][A-Za-z0-9_]*)\\s+(" + variableName + ")\\s*[,|;|=|\\)]");
+            } catch (PatternSyntaxException e) {
+                System.err.println("Invalid declaration pattern: " + e.getMessage());
+                return null;
+            }
+            for (int i = Math.min(cleanedLines.indexAfterCleaning(), allLines.size() - 1); i >= 0; i--) {
+                String line = allLines.get(i);
+                int variableIndex = line.indexOf(variableName);
+                if (variableIndex > 0) {
+                    Matcher declarationMatcher = declarationPattern.matcher(line);
+                    if (declarationMatcher.find()) {
+                        String match = declarationMatcher.group(1);
+                        if (match.trim().equals("new")) {
+                            //TODO: Is there any case where this is true?
+                            return null;
+                        }
+                        return match;
+                    }
+                }
+
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return null;
     }
 
-    if (variableName.startsWith("\"") && variableName.endsWith("\"")) {
-        return String.class.getName();
-    }
-
-    if (variableName.equals("true") || variableName.equals("false")) {
-        return Boolean.class.getName();
-    }
-
-    Matcher integerMatcher = Pattern.compile("[-+]?\\d+$").matcher(variableName);
-    if (integerMatcher.find()) {
-        return Integer.class.getName();
-    }
-
-    Matcher longMatcher = Pattern.compile("[-+]?\\d+[lL]$").matcher(variableName);
-    if (longMatcher.find()) {
-        return Long.class.getName();
-    }
-
-    Matcher doubleMatcher = Pattern.compile("[-+]?\\d*\\.?\\d+$").matcher(variableName);
-    if (doubleMatcher.find()) {
-        return Double.class.getName();
-    }
-
-    Matcher floatMatcher = Pattern.compile("[-+]?\\d*\\.?\\d+[fF]$").matcher(variableName);
-    if (floatMatcher.find()) {
-        return Float.class.getName();
-    }
-
-    System.out.println("Not a constant: " + variableName);
-
-    if (variableName.contains("->")) {
-        return Predicate.class.getName();
-    }
-
-    Matcher expressionMatcher = EXPRESSION_PATTERN.matcher(variableName);
-    if (expressionMatcher.find()) {
-        String expressionType = PrimitiveExpressionSolver.getTypeOfPrimitiveExpression(variableName);
-        if(expressionType != null) {
-            return expressionType;
-        }
-    }
-
-    try {
-        List<String> allLines = Files.readAllLines(path);
-
-        CleanedLines cleanedLines = cleanLines(allLines, lineNumber);
-
-        allLines = cleanedLines.lines();
-        Pattern declarationPattern;
-        try {
-            declarationPattern = Pattern.compile(
-                    "\\b([A-Za-z_][A-Za-z0-9_]*)\\s+(" + variableName + ")\\s*[,|;|=|\\)]");
-        }catch (PatternSyntaxException e){
-            System.err.println("Invalid declaration pattern: " + e.getMessage());
-            return null;
-        }
-        for (int i = Math.min(cleanedLines.indexAfterCleaning(), allLines.size() - 1); i >= 0; i--) {
-            String line = allLines.get(i);
-            int variableIndex = line.indexOf(variableName);
-            if (variableIndex > 0) {
-                Matcher declarationMatcher = declarationPattern.matcher(line);
-                if (declarationMatcher.find()) {
-                    String match = declarationMatcher.group(1);
-                    if (match.trim().equals("new")) {
-                        //TODO: Is there any case where this is true?
-                        return null;
-                    }
-                    return match;
-                }
+    public static List<String> splitWithRegardsToBraceScope(String line) {
+        List<String> result = new ArrayList<>();
+        List<Integer> splitIndexes = new ArrayList<>();
+        int openBraceIndex = 0;
+        int closeBraceIndex = 0;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '(') {
+                openBraceIndex++;
+            } else if (c == ')') {
+                closeBraceIndex++;
+            } else if (c == ',' && openBraceIndex == closeBraceIndex) {
+                splitIndexes.add(i);
             }
-
+        }
+        if(splitIndexes.isEmpty()) {
+            result.add(line);
+            return result;
+        }
+        int lastIndex = 0;
+        for (int i = 0; i < splitIndexes.size(); i++) {
+            result.add(line.substring(lastIndex, splitIndexes.get(i)));
+            lastIndex = splitIndexes.get(i)+1;
         }
 
-    } catch (IOException e) {
-        throw new RuntimeException(e);
+        result.add(line.substring(lastIndex));
+
+        return result;
     }
-    return null;
-}
 
     public static List<String> getParameterTypesOfMethodCall(SourceCodeAnalyzer sourceCodeAnalyzer, String methodCall,
                                                              String targetDirectoryClasses, String strippedFileName,
@@ -259,14 +289,14 @@ public static String getClassNameOfVariable(String variableName, Path path, int 
             return parameterTypes;
         }
 
-        String[] paramSplit = potentialInnerChain.split(",");
+        List<String> paramSplit = splitWithRegardsToBraceScope(potentialInnerChain);
         for (String param : paramSplit) {
             param = param.trim();
 
             Matcher expressionMatcher = EXPRESSION_PATTERN.matcher(param);
 
-            if(expressionMatcher.find()) {
-                System.out.println("Expression detected in method call: " + methodCall+" Filename: "+strippedFileName);
+            if (expressionMatcher.find()) {
+                System.out.println("Expression detected in method call: " + methodCall + " Filename: " + strippedFileName);
             }
 
             if (!param.contains("(")) {
@@ -292,6 +322,10 @@ public static String getClassNameOfVariable(String variableName, Path path, int 
                     }
 
                     methodName = methodName.substring(methodName.indexOf(".") + 1);
+                }
+
+                if(className.isEmpty()) {
+                    className = strippedClassName.replaceAll(".java", "");
                 }
 
                 parameterTypes.add(sourceCodeAnalyzer.getReturnTypeOfMethod(className, methodName, innerTypes.toArray(new String[innerTypes.size()])));
@@ -334,13 +368,20 @@ public static String getClassNameOfVariable(String variableName, Path path, int 
     public static String wrapperNameToPrimitiveClassName(String parameter) {
 
         switch (parameter) {
-            case "java.lang.Double": return "double";
-            case "java.lang.Float": return "float";
-            case "java.lang.Long": return "long";
-            case "java.lang.Integer": return "int";
-            case "java.lang.Character": return "char";
-            case "java.lang.Short": return "short";
-            case "java.lang.Byte": return "byte";
+            case "java.lang.Double":
+                return "double";
+            case "java.lang.Float":
+                return "float";
+            case "java.lang.Long":
+                return "long";
+            case "java.lang.Integer":
+                return "int";
+            case "java.lang.Character":
+                return "char";
+            case "java.lang.Short":
+                return "short";
+            case "java.lang.Byte":
+                return "byte";
             default:
                 return parameter;
         }
@@ -348,21 +389,28 @@ public static String getClassNameOfVariable(String variableName, Path path, int 
 
     public static Object wrapperNameToPrimitiveInstance(String parameter) {
         switch (parameter) {
-            case "java.lang.Double": return 0d;
-            case "java.lang.Float": return 0f;
-            case "java.lang.Long": return 0l;
-            case "java.lang.Integer": return 0;
-            case "java.lang.Character": return ' ';
-            case "java.lang.Short": return (short)0;
-            case "java.lang.Byte": return (byte)0;
+            case "java.lang.Double":
+                return 0d;
+            case "java.lang.Float":
+                return 0f;
+            case "java.lang.Long":
+                return 0l;
+            case "java.lang.Integer":
+                return 0;
+            case "java.lang.Character":
+                return ' ';
+            case "java.lang.Short":
+                return (short) 0;
+            case "java.lang.Byte":
+                return (byte) 0;
             default:
                 throw new RuntimeException("Unknown primitive type: " + parameter);
         }
     }
 
-    public static boolean parameterIsPrimitiveNumber(String parameterClassName){
+    public static boolean parameterIsPrimitiveNumber(String parameterClassName) {
         String classWrapper = primitiveClassNameToWrapperName(parameterClassName);
-        switch (classWrapper){
+        switch (classWrapper) {
             case "java.lang.Double":
             case "java.lang.Float":
             case "java.lang.Long":

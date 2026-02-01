@@ -30,12 +30,13 @@ public class MethodChainProvider extends BrokenCodeRegexProvider {
 
     public static MethodChainAnalysis analyseMethodChain(int compileErrorColumn, int line, String brokenCode, String targetDirectoryClasses,
                                                          String strippedFileName, String strippedClassName, String srcDirectory, int iteration) {
-        int errorIndex = Math.min(compileErrorColumn, brokenCode.length() - 1);
+        int errorIndex = Math.min(compileErrorColumn-1, brokenCode.length() - 1);
         Path classLookupPath = ContainerUtil.getPathWithRespectToIteration(targetDirectoryClasses, strippedFileName, strippedClassName, iteration, true);
 
         //System.out.println("Trying to create source code analyser");
         SourceCodeAnalyzer sourceCodeAnalyzer = SourceCodeAnalyzer.getInstance(srcDirectory);
         //System.out.println("Sourcecodeanalyzer created!!");
+        int oldLength = brokenCode.length();
         if (brokenCode.contains("=")) {
             brokenCode = brokenCode.substring(brokenCode.indexOf("=") + 1).trim();
         }
@@ -50,6 +51,8 @@ public class MethodChainProvider extends BrokenCodeRegexProvider {
             brokenCode = brokenCode.substring(brokenCode.indexOf("new") + "new".length()).trim();
             isConstructor = true;
         }
+
+        errorIndex -= (oldLength - brokenCode.length());
 
 
         String targetClass = "";
@@ -74,7 +77,7 @@ public class MethodChainProvider extends BrokenCodeRegexProvider {
                 index = closingBraceIndex + 1;
                 continue;
             }
-            if (errorIndex >= openBraceIndex && errorIndex < closingBraceIndex) {
+            if (errorIndex > openBraceIndex && errorIndex < closingBraceIndex) {
                 brokenCode = potentialInnerChain;
                 errorIndex -= openBraceIndex;
             } else {

@@ -1,0 +1,14 @@
+{
+  "project" : "jacksonDowngrade",
+  "updatedDependency" : {
+    "dependencyGroupID" : "com.fasterxml.jackson.core",
+    "dependencyArtifactID" : "jackson-databind",
+    "previousVersion" : "2.19.1",
+    "newVersion" : "2.0.1",
+    "mavenSourceLinkPre" : "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.19.1/jackson-databind-2.19.1-sources.jar",
+    "mavenSourceLinkBreaking" : "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.0.1/jackson-databind-2.0.1-sources.jar",
+    "updatedFileType" : "JAR"
+  },
+  "preCommitReproductionCommand" : "docker run fixtest",
+  "breakingUpdateReproductionCommand" : "docker run fixtestbroken"
+}

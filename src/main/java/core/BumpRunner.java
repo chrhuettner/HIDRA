@@ -330,6 +330,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     boolean allErrorsWereFixed = false;
                     int amountOfIterations = 0;
                     int amountOfRetries = 0;
+                    int retryAtBuildFix = -1;
+                    int iterationAtBuildFix = -1;
                     outerloop:
                     for (; amountOfRetries <= bumpConfig.getMaxRetries(); amountOfRetries++) {
                         if(solverCallsPerIteration.containsKey(strippedFileName)) {
@@ -387,6 +389,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
                                     }
                                     if(!buildErrorsWereFixed) {
                                         buildErrorsWereFixed = true;
+                                        retryAtBuildFix = amountOfRetries;
+                                        iterationAtBuildFix = amountOfIterations;
                                         safeResult(context);
                                         System.out.println("Fixed build of " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ", buildOnly: " + buildErrorsWereFixed + ")");
                                         System.out.println("Repair continues to fix test execution");
@@ -438,6 +442,11 @@ Caused by: java.util.zip.ZipException: zip END header not found
                     System.out.println("Took " + diff + " ms to process " + project);
 
                     if (allErrorsWereFixed || buildErrorsWereFixed) {
+                        if(buildErrorsWereFixed) {
+                            System.out.println("Project "+strippedFileName+" could only be build fixed, reverting retry and iteration statistics to build fix time");
+                            amountOfRetries = retryAtBuildFix;
+                            amountOfIterations = iterationAtBuildFix;
+                        }
                         System.out.println("Fixed " + strippedFileName + " (Retries: " + amountOfRetries + ", Iteration: " + amountOfIterations + ", buildOnly: " + buildErrorsWereFixed + ")");
                         successfulProjectIds.add(strippedFileName);
                         successfulDurations.add((double) diff);

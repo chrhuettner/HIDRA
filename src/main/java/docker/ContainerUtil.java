@@ -396,25 +396,30 @@ public class ContainerUtil {
 
     public static CreateContainerResponse pullImageAndCreateContainerWithDependenciesCommand(DockerClient dockerClient, String imagePath) {
         try {
-            dockerClient.pullImageCmd(imagePath)
-                    .exec(new PullImageResultCallback() {
-                        @Override
-                        public void onNext(PullResponseItem item) {
-                            String status = item.getStatus();
-                            String progress = item.getProgress();
-                            String id = item.getId();
+            try {
+                dockerClient.pullImageCmd(imagePath)
+                        .exec(new PullImageResultCallback() {
+                            @Override
+                            public void onNext(PullResponseItem item) {
+                                String status = item.getStatus();
+                                String progress = item.getProgress();
+                                String id = item.getId();
 
-                            if (status != null) {
-                                if (progress != null && !progress.isEmpty()) {
-                                    System.out.printf("%s: %s %s%n", id != null ? id : "", status, progress);
-                                } else {
-                                    System.out.printf("%s: %s%n", id != null ? id : "", status);
+                                if (status != null) {
+                                    if (progress != null && !progress.isEmpty()) {
+                                        System.out.printf("%s: %s %s%n", id != null ? id : "", status, progress);
+                                    } else {
+                                        System.out.printf("%s: %s%n", id != null ? id : "", status);
+                                    }
                                 }
-                            }
 
-                            super.onNext(item);
-                        }
-                    }).awaitCompletion();
+                                super.onNext(item);
+                            }
+                        }).awaitCompletion();
+            } catch (Exception e) {
+                // Dont throw, the container might still be local and therefore accessible
+                e.printStackTrace();
+            }
             return dockerClient.createContainerCmd(imagePath)
                     .withCmd("sh", "-c",
                             //"mvn clean test -B | tee %s.log")
@@ -429,25 +434,30 @@ public class ContainerUtil {
 
     public static CreateContainerResponse pullImageAndCreateContainer(DockerClient dockerClient, String imagePath, boolean buildOnly) {
         try {
-            dockerClient.pullImageCmd(imagePath)
-                    .exec(new PullImageResultCallback() {
-                        @Override
-                        public void onNext(PullResponseItem item) {
-                            String status = item.getStatus();
-                            String progress = item.getProgress();
-                            String id = item.getId();
+            try {
+                dockerClient.pullImageCmd(imagePath)
+                        .exec(new PullImageResultCallback() {
+                            @Override
+                            public void onNext(PullResponseItem item) {
+                                String status = item.getStatus();
+                                String progress = item.getProgress();
+                                String id = item.getId();
 
-                            if (status != null) {
-                                if (progress != null && !progress.isEmpty()) {
-                                    System.out.printf("%s: %s %s%n", id != null ? id : "", status, progress);
-                                } else {
-                                    System.out.printf("%s: %s%n", id != null ? id : "", status);
+                                if (status != null) {
+                                    if (progress != null && !progress.isEmpty()) {
+                                        System.out.printf("%s: %s %s%n", id != null ? id : "", status, progress);
+                                    } else {
+                                        System.out.printf("%s: %s%n", id != null ? id : "", status);
+                                    }
                                 }
-                            }
 
-                            super.onNext(item);
-                        }
-                    }).awaitCompletion();
+                                super.onNext(item);
+                            }
+                        }).awaitCompletion();
+            } catch (Exception e) {
+                // Dont throw, the container might still be local and therefore accessible
+                e.printStackTrace();
+            }
             if (buildOnly) {
                 return dockerClient.createContainerCmd(imagePath).withCmd("sh", "-c", "mvn clean compile -B | tee %s.log").exec();
             }

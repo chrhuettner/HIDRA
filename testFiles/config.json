@@ -1,8 +1,8 @@
 {
   "pathToBUMPFolder": "testFiles/customProjectTest",
   "threads": 1,
-  "maxIterations": 2,
-  "maxRetries": 0,
+  "maxIterations": 4,
+  "maxRetries": 5,
   "pathToOutput": "testFiles",
   "llmProvider": "ollama",
   "ollamaUri": "http://localhost:11434",
@@ -13,5 +13,5 @@
   "dockerRegistryUri": "",
   "wordSimilarityModel": "nomic-embed-text",
   "llmApiKey": "",
-  "temperature": 0.5
+  "temperature": 0
 }
