@@ -459,7 +459,7 @@ public class ContainerUtil {
                 e.printStackTrace();
             }
             if (buildOnly) {
-                return dockerClient.createContainerCmd(imagePath).withCmd("sh", "-c", "mvn clean compile -B | tee %s.log").exec();
+                return dockerClient.createContainerCmd(imagePath).withCmd("sh", "-c", "mvn clean compile test-compile -B | tee %s.log").exec();
             }
             return dockerClient.createContainerCmd(imagePath).exec();
 
