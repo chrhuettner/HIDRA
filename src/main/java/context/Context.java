@@ -52,6 +52,7 @@ public class Context {
     private String targetDirectoryResult;
 
     private AtomicInteger llmRequests;
+    private int retry;
 
 
     public Context(String project, String previousVersion, String newVersion, String dependencyArtifactId, String strippedFileName,
@@ -87,6 +88,7 @@ public class Context {
         this.fixedClassesFromPastIterations = new HashMap<>();
         this.targetDirectoryResult = targetDirectoryResult;
         this.llmRequests = llmRequests;
+        this.retry = 0;
     }
 
     public String getStrippedClassName() {
@@ -307,5 +309,13 @@ public class Context {
 
     public void setLlmRequests(AtomicInteger llmRequests) {
         this.llmRequests = llmRequests;
+    }
+
+    public int getRetry() {
+        return retry;
+    }
+
+    public void setRetry(int retry) {
+        this.retry = retry;
     }
 }

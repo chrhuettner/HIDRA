@@ -347,6 +347,8 @@ Caused by: java.util.zip.ZipException: zip END header not found
                                 targetDirectoryLLMResponses, targetDirectoryPrompts, targetDirectoryFixedClasses, targetDirectoryFixedLogs, null,
                                 bumpConfig, wordSimilarityModel, targetDirectoryResult, llmRequests);
 
+                        context.setRetry(amountOfRetries);
+
                         List<Object> errors = parseLog(Path.of(bumpConfig.getPathToOutput() + "/brokenLogs" + "/" + strippedFileName + "_" + project));
 
                         reduceErrors(errors, context);

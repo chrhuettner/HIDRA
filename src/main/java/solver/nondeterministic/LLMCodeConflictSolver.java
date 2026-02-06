@@ -186,7 +186,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
         String methodChange = "";
         ClassDiffResult classDiffResult = null;
         StringBuilder methodSimilarityString = new StringBuilder();
-        if(brokenClassName != null) {
+        if (brokenClassName != null) {
             classDiffResult = jarDiffUtil.getJarDiff(brokenClassName, brokenMethodName, parameterTypeNames, wordSimilarityModel);
 
             if (classDiffResult.classDiff().isEmpty()) {
@@ -236,11 +236,19 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
 
         assembledPrompt.append(String.format(promptTemplatePrefix, libraryName, oldVersion, newVersion));
 
-        if (!methodChange.isEmpty() && !disabledPromptComponents.contains("methodchange")) {
+        boolean disableMethodChanges = true;
+        // 3 ... 7 ... 10
+        boolean disableClassDiff = (1 + context.getRetry()) % 4 == 0;
+        // 2 ... 6 ... 8
+        boolean disableScope = (2 + context.getRetry()) % 4 == 0;
+        // 1 ... 5 ... 7
+        boolean disableMethodSimilarity = (3 + context.getRetry()) % 4 == 0;
+
+        if (!methodChange.isEmpty() && !disabledPromptComponents.contains("methodchange") && !disableMethodChanges) {
             assembledPrompt.append(String.format(promptTemplateMethodDiff, methodChange));
         }
 
-        if (classDiffResult != null && !classDiffResult.classDiff().isEmpty() && !disabledPromptComponents.contains("classdiff")) {
+        if (classDiffResult != null && !classDiffResult.classDiff().isEmpty() && !disabledPromptComponents.contains("classdiff") && !disableClassDiff) {
             assembledPrompt.append(String.format(promptTemplateFullDiff, newVersion, oldVersion, classDiffResult.classDiff()));
         }
 
@@ -248,7 +256,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
             //assembledPrompt.append(String.format(promptTemplateErroneousClass,  newVersion, erroneousClass));
         }
 
-        if (!erroneousScope.isEmpty() && !disabledPromptComponents.contains("scope")) {
+        if (!erroneousScope.isEmpty() && !disabledPromptComponents.contains("scope") && !disableScope) {
             assembledPrompt.append(String.format(promptTemplateErroneousScope, erroneousScope));
         }
 
@@ -256,7 +264,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
             assembledPrompt.append(String.format(promptTemplateCodeLine, newVersion, brokenCode));
         }
 
-        if (!methodSimilarityString.isEmpty() && !disabledPromptComponents.contains("methodsimilarity")) {
+        if (!methodSimilarityString.isEmpty() && !disabledPromptComponents.contains("methodsimilarity") && !disableMethodSimilarity) {
             assembledPrompt.append(String.format(promptTemplateSimilarity, methodSimilarityString));
         }
 
@@ -277,7 +285,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
 
         for (int i = 0; i < parameters1.size(); i++) {
             JApiParameter parameter = parameters1.get(i);
-            if(parameters2[i] == null){
+            if (parameters2[i] == null) {
                 return false;
             }
             if (!ContextUtil.primitiveClassNameToWrapperName(parameter.getType()).endsWith(ContextUtil.primitiveClassNameToWrapperName(parameters2[i])) && !parameters2[i].equals("java.lang.Object")) {
@@ -375,14 +383,14 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
                 String line = lines.get(i);
                 for (int j = 0; j < line.length(); j++) {
                     char c = line.charAt(j);
-                    if(c == '{'){
+                    if (c == '{') {
                         openBraces++;
-                    }else if(c == '}'){
+                    } else if (c == '}') {
                         closedBraces++;
                     }
                 }
 
-                if(openBraces == closedBraces+1){
+                if (openBraces == closedBraces + 1) {
                     start = i;
                     break;
                 }
@@ -442,7 +450,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
     }
 
     private String cleanClassName(String className) {
-        if(className == null){
+        if (className == null) {
             return "unknownClass";
         }
         return className.replaceAll(" ", "").replaceAll("\\?", "generic");
@@ -468,7 +476,7 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
             }
 
 
-            for (int i = 0; result == null && i<5; i++) {
+            for (int i = 0; result == null && i < 5; i++) {
                 try {
                     result = sendAndPrintCode(prompt, context.getConfig().getTemperature(), context.getConfig().getTop_k());
                 } catch (AIProviderException e) {
