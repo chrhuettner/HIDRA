@@ -245,6 +245,11 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
         // 1 ... 6
         boolean disableMethodSimilarity = (4 + context.getRetry()) % 5 == 0;
 
+        System.out.println("Disabled method changes: " + disableMethodChanges);
+        System.out.println("Disabled class diff: " + disableClassDiff);
+        System.out.println("Disabled scope: " + disableScope);
+        System.out.println("Disabled method similarity: " + disableMethodSimilarity);
+
         if (!methodChange.isEmpty() && !disabledPromptComponents.contains("methodchange") && !disableMethodChanges) {
             assembledPrompt.append(String.format(promptTemplateMethodDiff, methodChange));
         }
