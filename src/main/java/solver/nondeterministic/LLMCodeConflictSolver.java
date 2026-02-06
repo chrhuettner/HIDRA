@@ -236,13 +236,14 @@ public class LLMCodeConflictSolver extends ContextAwareSolver {
 
         assembledPrompt.append(String.format(promptTemplatePrefix, libraryName, oldVersion, newVersion));
 
-        boolean disableMethodChanges = true;
-        // 3 ... 7 ... 10
-        boolean disableClassDiff = (1 + context.getRetry()) % 4 == 0;
-        // 2 ... 6 ... 8
-        boolean disableScope = (2 + context.getRetry()) % 4 == 0;
-        // 1 ... 5 ... 7
-        boolean disableMethodSimilarity = (3 + context.getRetry()) % 4 == 0;
+        // 4 ... 9
+        boolean disableMethodChanges = (1 + context.getRetry()) % 5 == 0;
+        // 3 ... 8
+        boolean disableClassDiff = (2 + context.getRetry()) % 5 == 0;
+        // 2 ... 7
+        boolean disableScope = (3 + context.getRetry()) % 5 == 0;
+        // 1 ... 6
+        boolean disableMethodSimilarity = (4 + context.getRetry()) % 5 == 0;
 
         if (!methodChange.isEmpty() && !disabledPromptComponents.contains("methodchange") && !disableMethodChanges) {
             assembledPrompt.append(String.format(promptTemplateMethodDiff, methodChange));
