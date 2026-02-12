@@ -20,7 +20,7 @@ public class OpenAiProvider extends BaseLLMProvider {
     }
 
     @Override
-    public Object getPromptWithContext(String prompt, String context, double temperature, double top_k) {
+    public Object getPromptWithContext(String prompt, String context, double temperature, String think) {
         ChatGPTMessage[] messages = new ChatGPTMessage[2];
         messages[0] = new ChatGPTMessage("system", context);
         messages[1] = new ChatGPTMessage("user", prompt);

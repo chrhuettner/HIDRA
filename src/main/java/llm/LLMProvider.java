@@ -4,7 +4,7 @@ import dto.ConflictResolutionResult;
 
 public interface LLMProvider {
 
-    ConflictResolutionResult sendPromptAndReceiveResponse(String prompt, String context, double temperature, double top_k);
+    ConflictResolutionResult sendPromptAndReceiveResponse(String prompt, String context, double temperature, String think);
 
     String getModel();
 }
