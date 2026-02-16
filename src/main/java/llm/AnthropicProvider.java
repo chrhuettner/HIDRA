@@ -17,7 +17,7 @@ public class AnthropicProvider extends BaseLLMProvider {
     }
 
     @Override
-    public Object getPromptWithContext(String prompt, String context, double temperature, String think) {
+    public Object getPromptWithContext(String prompt, String context, double temperature, double top_k) {
         ClaudeMessage[] messages = new ClaudeMessage[2];
         messages[0] = new ClaudeMessage("system", new ClaudeContent("text", context));
         messages[1] = new ClaudeMessage("user", new ClaudeContent("text", prompt));

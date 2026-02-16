@@ -20,7 +20,7 @@ public class BumpConfig {
     private String llmApiKey;
     private Set<String> disabledPromptComponents;
     private double temperature;
-    private String think;
+    private double top_k;
 
 
     public String getPathToBUMPFolder() {
@@ -151,11 +151,11 @@ public class BumpConfig {
         this.temperature = temperature;
     }
 
-    public String getThink() {
-        return think;
+    public double getTop_k() {
+        return top_k;
     }
 
-    public void setThink(String think) {
-        this.think = think;
+    public void setTop_k(double top_k) {
+        this.top_k = top_k;
     }
 }
