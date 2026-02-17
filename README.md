@@ -47,18 +47,18 @@ Inside `bumpFolder`, add one JSON file per project with the following format:
 
 ```
 {
-"project": "<github_project>",
-"updatedDependency": {
-"dependencyGroupID": "<group id>",
-"dependencyArtifactID": "<artifact id>",
-"previousVersion": "<label indicating the previous version>",
-"newVersion": "<label indicating the new version>",
-"mavenSourceLinkPre": "<maven source jar link for the previous release (optional)>",
-"mavenSourceLinkBreaking": "<maven source jar link for the breaking release (optional)>",
-"updatedFileType": "JAR"
-},
-"preCommitReproductionCommand": "docker run <preCommitImage>",
-"breakingUpdateReproductionCommand": "docker run <breakingImage>"
+    "project": "<github_project>",
+    "updatedDependency": {
+        "dependencyGroupID": "<group id>",
+        "dependencyArtifactID": "<artifact id>",
+        "previousVersion": "<label indicating the previous version>",
+        "newVersion": "<label indicating the new version>",
+        "mavenSourceLinkPre": "<maven source jar link for the previous release (optional)>",
+        "mavenSourceLinkBreaking": "<maven source jar link for the breaking release (optional)>",
+        "updatedFileType": "JAR"
+    },
+    "preCommitReproductionCommand": "docker run <preCommitImage>",
+    "breakingUpdateReproductionCommand": "docker run <breakingImage>"
 }
 ```
 
@@ -73,20 +73,22 @@ In `jsonConfig`, specify:
 
 ```
 {
-"pathToBUMPFolder": "<path to bumpFolder>",
-"threads": <amount of concurrent threads>,
-"llmRetries": <amount of times the llm may iterate over errors>,
-"pathToOutput": <path to output>,
-"llmProvider": "<ollama|openai>",
-"ollamaUri": "<uri to access ollama (usually http://localhost:11434 or http://host.docker.internal:11434)>",
-"llmName": "<name of the llm (for example qwen3-coder:480b-cloud)>",
-"dockerHostUri": "<uri to access docker (usually tcp://localhost:2375 or tcp://host.docker.internal:2375)>",
-"dockerUsername": "<optional docker username>",
-"dockerPassword": "<optional docker password>",
-"dockerRegistryUri": "<optional docker registry>",
-"wordSimilarityModel": "<name of encoder model (for example nomic-embed-text)>",
-"llmApiKey": "<api key if llmProvider is openai>",
-"temperature": <LLM temperature from 0 to 1>
+    "pathToBUMPFolder": <path to folder containing BUMP jsons>,
+    "threads": <number of parallel threads>,
+    "maxIterations": <maximum amount of iterations before pruning a branch>,
+    "maxRetries": <maximum amount of retries>,
+    "pathToOutput": <path to output folder>,
+    "llmProvider": <ollama|openai>,
+    "ollamaUri": <uri to access ollama, for example: http://localhost:11434>,
+    "llmName": <llm name, for example: qwen3-coder:480b-cloud>,
+    "dockerHostUri": <uri to access docker, for example: tcp://localhost:2375>,
+    "dockerUsername": <optional docker username>,
+    "dockerPassword": <optional docker password>,
+    "dockerRegistryUri": <optional docker registry uri>,
+    "wordSimilarityModel": <text encoder model, for example: nomic-embed-text>,
+    "llmApiKey": "<api key if llm provider is openai>",
+    "disabledPromptComponents": <Set of disabled LLM prompt components>,
+    "temperature": <LLM temperature from 0 to 1>
 }
 ```
 
