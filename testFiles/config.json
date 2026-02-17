@@ -1,5 +1,5 @@
 {
-  "pathToBUMPFolder": "testFiles/customProjectTest",
+  "pathToBUMPFolder": "testFiles/BUMPSubset",
   "threads": 1,
   "maxIterations": 4,
   "maxRetries": 5,

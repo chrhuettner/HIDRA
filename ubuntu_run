@@ -7,7 +7,7 @@ sudo docker run --rm \
   --add-host=host.docker.internal:host-gateway \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$HOST_WORKDIR:/app/workFolder" \
-  chrhuettner/dependencyconflictresolver:latest \
+  chrhuettner/hidra:1.0 \
   bump "/app/workFolder/configDockerTest3.json" \
   2>&1 | tee -a "$log"
 

@@ -1,12 +1,12 @@
 {
-  "project" : "jacksonDowngrade",
+  "project" : "okhttpDowngrade",
   "updatedDependency" : {
-    "dependencyGroupID" : "com.fasterxml.jackson.core",
-    "dependencyArtifactID" : "jackson-databind",
-    "previousVersion" : "2.19.1",
-    "newVersion" : "2.0.1",
-    "mavenSourceLinkPre" : "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.19.1/jackson-databind-2.19.1-sources.jar",
-    "mavenSourceLinkBreaking" : "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.0.1/jackson-databind-2.0.1-sources.jar",
+    "dependencyGroupID" : "com.squareup.okhttp3",
+    "dependencyArtifactID" : "okhttp",
+    "previousVersion" : "4.12.0",
+    "newVersion" : "3.14.9",
+    "mavenSourceLinkPre" : "https://repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/4.12.0/okhttp-4.12.0-sources.jar",
+    "mavenSourceLinkBreaking" : "https://repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/3.14.9/okhttp-3.14.9-sources.jar",
     "updatedFileType" : "JAR"
   },
   "preCommitReproductionCommand" : "docker run fixtest",
