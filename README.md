@@ -53,18 +53,14 @@ Inside `bumpFolder`, add one JSON file per project with the following format:
         "dependencyArtifactID": "<artifact id>",
         "previousVersion": "<label indicating the previous version>",
         "newVersion": "<label indicating the new version>",
-        "mavenSourceLinkPre": "<maven source jar link for the previous release (optional)>",
-        "mavenSourceLinkBreaking": "<maven source jar link for the breaking release (optional)>",
+        "mavenSourceLinkPre": "<maven source jar link for the previous release>",
+        "mavenSourceLinkBreaking": "<maven source jar link for the breaking release>",
         "updatedFileType": "JAR"
     },
     "preCommitReproductionCommand": "docker run <preCommitImage>",
     "breakingUpdateReproductionCommand": "docker run <breakingImage>"
 }
 ```
-
-Notes:
-- The reproduction commands should be deterministic (pin image tags/digests if possible).
-- Source JAR links improve analysis quality but may be omitted if unavailable.
 
 ### 2) Create the global config
 
