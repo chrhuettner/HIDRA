@@ -109,14 +109,19 @@ public class JarDiffUtil {
     }
 
     public String getAlternativeClassImport(String oldClassName) {
+        String candidate = null;
         for (JApiClass jApiClass : jApiClasses) {
             if (jApiClass.getFullyQualifiedName().toUpperCase().endsWith(oldClassName.toUpperCase())) {
                 if (jApiClass.getChangeStatus() != JApiChangeStatus.REMOVED) {
-                    return jApiClass.getFullyQualifiedName();
+                    if(candidate != null){
+                        //ambiguous import
+                        return null;
+                    }
+                    candidate = jApiClass.getFullyQualifiedName();
                 }
             }
         }
-        return null;
+        return candidate;
     }
 
     public List<JApiMethod> getChangedMethods() {
