@@ -1,0 +1,17 @@
+{
+  "pathToBUMPFolder": "testFiles/filtered_BUMP",
+  "threads": 1,
+  "maxIterations": 4,
+  "maxRetries": 1,
+  "pathToOutput": "testFiles",
+  "llmProvider": "ollama",
+  "ollamaUri": "http://host.docker.internal:11434",
+  "llmName": "gemma4:31b",
+  "dockerHostUri": "tcp://host.docker.internal:2375",
+  "dockerUsername": "",
+  "dockerPassword": "",
+  "dockerRegistryUri": "",
+  "wordSimilarityModel": "nomic-embed-text",
+  "llmApiKey": "",
+  "temperature": 0
+}
