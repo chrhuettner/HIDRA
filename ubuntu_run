@@ -1,15 +1,21 @@
+Adjusted: Run ollama through socat proxy:
+docker run -d \
+  --name ollama-proxy \
+  --restart unless-stopped \
+  --network host \
+  alpine/socat \
+  TCP-LISTEN:11435,fork,reuseaddr,bind=0.0.0.0 \
+  TCP:127.0.0.1:11434
+
+then use that proxy via port 11435
+
 tmux new -s bench
 
-HOST_WORKDIR="$HOME/workFolder"
+HOST_WORKDIR="$HOME/hidra/testFiles"
 log="$HOST_WORKDIR/benchmark_$(date +%F_%H-%M-%S).log"
 
-sudo docker run --rm \
-  --add-host=host.docker.internal:host-gateway \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v "$HOST_WORKDIR:/app/workFolder" \
-  chrhuettner/hidra:1.0 \
-  bump "/app/workFolder/configDockerTest3.json" \
-  2>&1 | tee -a "$log"
+sudo
+docker run --rm --add-host=host.docker.internal:host-gateway -v /var/run/docker.sock:/var/run/docker.sock -v "$HOST_WORKDIR:/app/testFiles" chrhuettner/hidra:llm bump "/app/testFiles/gptoss120b.json" 2>&1 | tee -a "$log"
 
 
 Detach: Ctrl-b, then d

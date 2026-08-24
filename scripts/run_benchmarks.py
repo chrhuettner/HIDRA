@@ -15,12 +15,18 @@ import sys
 import time
 
 
+CONTAINER_WORKDIR = "/app/testFolder"
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run one HIDRA Docker container for every JSON config in a directory."
     )
     parser.add_argument("config_dir", type=Path, help="directory containing model configs")
-    parser.add_argument("--workdir", type=Path, help="host directory mounted at /app/workFolder")
+    parser.add_argument(
+        "--workdir", type=Path,
+        help=f"host directory mounted at {CONTAINER_WORKDIR}",
+    )
     parser.add_argument("--image", default="chrhuettner/hidra:llm", help="Docker image")
     parser.add_argument(
         "--logs", type=Path,
@@ -34,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def docker_path(relative_path: Path) -> str:
-    return "/app/workFolder/" + relative_path.as_posix()
+    return f"{CONTAINER_WORKDIR}/{relative_path.as_posix()}"
 
 
 def main() -> int:
@@ -95,8 +101,8 @@ def main() -> int:
             docker or "docker", "run", "--rm",
             "--add-host=host.docker.internal:host-gateway",
             "-v", "/var/run/docker.sock:/var/run/docker.sock",
-            "-v", f"{workdir}:/app/workFolder",
-            "--workdir", "/app/workFolder",
+            "-v", f"{workdir}:{CONTAINER_WORKDIR}",
+            "--workdir", CONTAINER_WORKDIR,
             args.image, "bump", docker_path(relative_config),
         ]
         print(f"\n[{index}/{total}] {relative_config}")
