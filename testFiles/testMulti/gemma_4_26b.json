@@ -6,7 +6,7 @@
   "pathToOutput": "testFiles",
   "llmProvider": "ollama",
   "ollamaUri": "http://host.docker.internal:11435",
-  "llmName": "gemma4:31b",
+  "llmName": "gemma4:26b",
   "dockerHostUri": "unix:///var/run/docker.sock",
   "dockerUsername": "",
   "dockerPassword": "",

@@ -22,9 +22,9 @@ public abstract class BaseLLMProvider implements LLMProvider {
 
     public BaseLLMProvider() {
         client = new OkHttpClient.Builder().connectTimeout(300, TimeUnit.SECONDS)
-                .writeTimeout(300, TimeUnit.SECONDS)
-                .readTimeout(300, TimeUnit.SECONDS)
-                .callTimeout(330, TimeUnit.SECONDS)
+                .writeTimeout(3000, TimeUnit.SECONDS)
+                .readTimeout(3000, TimeUnit.SECONDS)
+                .callTimeout(3000, TimeUnit.SECONDS)
                 .build();
         mapper = new ObjectMapper();
     }
