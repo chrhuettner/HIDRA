@@ -84,11 +84,7 @@ In `jsonConfig`, specify:
     "wordSimilarityModel": <text encoder model, for example: nomic-embed-text>,
     "llmApiKey": "<api key if llm provider is openai>",
     "disabledPromptComponents": <Set of disabled LLM prompt components>,
-    "temperature": <LLM temperature from 0 to 1>,
-    "academicAiReasoningEffort": <Academic AI reasoning effort, for example: high>,
-    "academicAiVerbosity": <Academic AI verbosity, for example: low>,
-    "academicAiOptimizedFormulaOutput": <whether Academic AI should optimize formula output>,
-    "academicAiUrl": <Academic AI endpoint, for example: http://localhost:8080/promptAI>
+    "temperature": <LLM temperature from 0 to 1>
 }
 ```
 
