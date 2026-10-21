@@ -74,7 +74,7 @@ In `jsonConfig`, specify:
     "maxIterations": <maximum amount of iterations before pruning a branch>,
     "maxRetries": <maximum amount of retries>,
     "pathToOutput": <path to output folder>,
-    "llmProvider": <ollama|openai|anthropic|academicai>,
+    "llmProvider": <ollama|openai|anthropic>,
     "ollamaUri": <uri to access ollama, for example: http://localhost:11434>,
     "llmName": <llm name, for example: qwen3-coder:480b-cloud>,
     "dockerHostUri": <uri to access docker, for example: tcp://localhost:2375>,
