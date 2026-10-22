@@ -1,0 +1,17 @@
+{
+  "pathToBUMPFolder": "testFiles/customProjectTest",
+  "threads": 1,
+  "maxIterations": 1,
+  "maxRetries": 0,
+  "pathToOutput": "testFiles",
+  "llmProvider": "ollama",
+  "ollamaUri": "http://localhost:11434",
+  "llmName": "gpt-oss:120b-cloud",
+  "dockerHostUri": "tcp://localhost:2375",
+  "dockerUsername": "",
+  "dockerPassword": "",
+  "dockerRegistryUri": "",
+  "wordSimilarityModel": "nomic-embed-text",
+  "llmApiKey": "",
+  "temperature": 0
+}

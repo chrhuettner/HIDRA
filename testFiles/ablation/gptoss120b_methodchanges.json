@@ -1,0 +1,20 @@
+{
+  "pathToBUMPFolder": "testFiles/filtered_BUMP",
+  "threads": 8,
+  "maxIterations": 4,
+  "maxRetries": 1,
+  "pathToOutput": "testFiles",
+  "llmProvider": "ollama",
+  "ollamaUri": "http://host.docker.internal:11435",
+  "llmName": "gpt-oss:120b",
+  "dockerHostUri": "unix:///var/run/docker.sock",
+  "dockerUsername": "",
+  "dockerPassword": "",
+  "dockerRegistryUri": "",
+  "wordSimilarityModel": "nomic-embed-text",
+  "llmApiKey": "",
+  "temperature": 0,
+  "disabledPromptComponents":[
+    "methodchange"
+  ]
+}

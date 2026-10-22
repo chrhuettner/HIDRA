@@ -43,7 +43,7 @@
 [INFO] --- scrooge:4.18.0:compile (thrift-sources) @ singer-commons ---
 [INFO] finding thrift files in dependencies
 [INFO] finding thrift files in referenced (reactor) projects
-[INFO] compiling thrift files [/singer/singer-commons/src/main/thrift/loggingaudit_test.thrift, /singer/singer-commons/src/main/thrift/thrift_message.thrift, /singer/singer-commons/src/main/thrift/singer_if.thrift, /singer/singer-commons/src/main/thrift/singer.thrift, /singer/singer-commons/src/main/thrift/config.thrift, /singer/singer-commons/src/main/thrift/loggingaudit.thrift, /singer/singer-commons/src/main/thrift/loggingaudit_config.thrift, /singer/singer-commons/src/main/thrift/common.thrift, /singer/singer-commons/src/main/thrift/text_message.thrift] with Scrooge
+[INFO] compiling thrift files [/singer/singer-commons/src/main/thrift/thrift_message.thrift, /singer/singer-commons/src/main/thrift/loggingaudit_test.thrift, /singer/singer-commons/src/main/thrift/singer_if.thrift, /singer/singer-commons/src/main/thrift/singer.thrift, /singer/singer-commons/src/main/thrift/config.thrift, /singer/singer-commons/src/main/thrift/loggingaudit.thrift, /singer/singer-commons/src/main/thrift/loggingaudit_config.thrift, /singer/singer-commons/src/main/thrift/common.thrift, /singer/singer-commons/src/main/thrift/text_message.thrift] with Scrooge
 [INFO] 
 [INFO] --- build-helper:3.4.0:add-source (add-source) @ singer-commons ---
 [INFO] Source directory: /singer/singer-commons/target/generated-sources/thrift/scrooge added.
@@ -67,15 +67,15 @@
 [INFO] ------------------------------------------------------------------------
 [INFO] Reactor Summary for Singer Logging Agent 0.8.0.66:
 [INFO] 
-[INFO] Singer Logging Agent ............................... SUCCESS [  1.180 s]
-[INFO] singer-commons ..................................... FAILURE [ 33.816 s]
+[INFO] Singer Logging Agent ............................... SUCCESS [  0.901 s]
+[INFO] singer-commons ..................................... FAILURE [ 18.174 s]
 [INFO] thrift-logger ...................................... SKIPPED
 [INFO] singer ............................................. SKIPPED
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD FAILURE
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  35.763 s
-[INFO] Finished at: 2025-09-30T16:55:01Z
+[INFO] Total time:  19.402 s
+[INFO] Finished at: 2026-08-18T08:43:40Z
 [INFO] ------------------------------------------------------------------------
 [WARNING] 
 [WARNING] Plugin validation issues were detected in 3 plugin(s)

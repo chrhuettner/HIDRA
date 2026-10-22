@@ -96,6 +96,33 @@ chrhuettner/hidra:1.0 \
 bump /app/<workFolder>/<jsonConfig>
 ```
 
+### Run a benchmark matrix
+
+Put one global configuration per LLM in a directory (for example,
+`workFolder/configs/gpt-5-nano.json` and `workFolder/configs/claude.json`). Then run
+all configurations sequentially with the cross-platform runner:
+
+```bash
+# Linux (add --sudo if Docker requires it)
+python3 scripts/run_benchmarks.py /path/to/workFolder/configs --workdir /path/to/workFolder
+```
+
+```powershell
+# Windows / Docker Desktop
+py scripts/run_benchmarks.py C:\workFolder\configs --workdir C:\workFolder
+```
+
+The config directory must be inside the mounted work directory. Configs are run
+in case-insensitive filename order. Output is shown in the terminal and also saved
+under `<config-dir-parent>/benchmark-logs/<timestamp>/`, with one log per configuration and
+a `summary.csv`. A failed configuration does not prevent later configurations from
+running; use `--stop-on-error` to change that. Use `--dry-run` to validate the JSON
+files and inspect the Docker commands without starting containers.
+
+On Linux, the runner mounts `/var/run/docker.sock`. On Windows, Docker Desktop must
+be configured to accept this Docker socket bind mount. The host work directory must
+also be shared with Docker Desktop.
+
 ## Outputs and Caching
 
 The program automatically generates folders for caching and intermediary results. Patched / fixed classes are located in the `result` folder, subdivided by project.
